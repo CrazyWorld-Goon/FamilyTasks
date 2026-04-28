@@ -335,7 +335,7 @@ export default function App() {
       if (prev.selected.length === 0) {
         return { ...prev, error: t("taskRequest.validationAssigneeRequired") };
       }
-      updateTask(prev.taskId, { assignees: prev.selected });
+      updateTask(prev.taskId, { assignees: prev.selected, sharedAt: new Date().toISOString() });
       showToast(t("toasts.taskSaved"));
       return null;
     });
@@ -1287,6 +1287,7 @@ function TaskItemRow({
   const slotShort = t(`slots.slotHintShort.${task.slot}`);
   const requestedForViewer =
     viewerMember != null &&
+    Boolean(task.sharedAt) &&
     task.assignees?.includes(viewerMember) &&
     task.assignee !== viewerMember;
   return (

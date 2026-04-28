@@ -52,6 +52,8 @@ export interface Task {
   recurrence?: "daily";
   /** Для daily: YYYY-MM-DD, когда в последний раз нажали «готово». */
   lastCompletedOn?: string;
+  /** ISO-время, когда задачей поделились через кнопку «Попросить». */
+  sharedAt?: string;
   petId?: FabricActorId;
   petKind?: PetCareKind;
   /** Связь с пунктом покупок */

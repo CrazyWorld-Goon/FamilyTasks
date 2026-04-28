@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { DEFAULT_MEMBERS } from "../constants";
 import { useI18n } from "../i18n/I18nProvider";
 import { IconCheck, IconPencil, IconPlus, IconTrash, IconListChecks, IconClose } from "./Icons";
@@ -95,7 +95,6 @@ export function TasksManageDialog({
   const [editingPermanentId, setEditingPermanentId] = useState<string | null>(null);
   const [editingPermanent, setEditingPermanent] = useState<PermanentPayload | null>(null);
   const [permanentSubmitAttempted, setPermanentSubmitAttempted] = useState(false);
-  const permanentTitleRef = useRef<HTMLInputElement | null>(null);
 
   const slotOptions = useMemo(
     () =>
@@ -242,11 +241,6 @@ export function TasksManageDialog({
       setPermanentSubmitAttempted(false);
     }
   }, [open]);
-
-  useEffect(() => {
-    if (!open || mode !== "permanent") return;
-    permanentTitleRef.current?.focus();
-  }, [mode, open]);
 
   const normalizedPermanentTime = useMemo(
     () => (permanentForm.plannedTime ? normalizeHHMM(permanentForm.plannedTime) : null),
@@ -505,7 +499,6 @@ export function TasksManageDialog({
           <div className="task-manage-permanent">
             <div className="task-manage-form task-manage-form--permanent">
               <input
-                ref={permanentTitleRef}
                 className="task-manage-input"
                 value={permanentForm.title}
                 onChange={(e) => setPermanentForm((prev) => ({ ...prev, title: e.target.value }))}

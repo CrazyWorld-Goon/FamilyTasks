@@ -177,6 +177,9 @@ export function usePersistedApp() {
         const tasks = s.tasks.map((t) => {
           if (t.id !== taskId) return t;
           const next: Task = { ...t, status };
+          if (status === "done") {
+            next.sharedAt = undefined;
+          }
           if (status === "done" && t.recurrence === "daily") {
             next.lastCompletedOn = today;
           }
@@ -303,6 +306,7 @@ export function usePersistedApp() {
         assignees?: MemberId[];
         active?: boolean;
         plannedTime?: string;
+        sharedAt?: string;
       },
     ) => {
       const today = todayKey();
@@ -315,11 +319,13 @@ export function usePersistedApp() {
         if (patch.assignees !== undefined) {
           const unique = Array.from(new Set(patch.assignees));
           next.assignees = unique.length > 0 ? unique : undefined;
-          if (unique.length > 0) next.assignee = unique[0];
+          const firstAssignee = unique[0];
+          if (firstAssignee) next.assignee = firstAssignee;
         }
         if (patch.slot !== undefined) next.slot = patch.slot;
         if (patch.active !== undefined) next.active = patch.active;
         if (patch.plannedTime !== undefined) next.plannedTime = patch.plannedTime || undefined;
+        if (patch.sharedAt !== undefined) next.sharedAt = patch.sharedAt || undefined;
         if (patch.notes !== undefined) {
           const n = patch.notes.trim();
           next.notes = n || undefined;
@@ -332,6 +338,9 @@ export function usePersistedApp() {
         }
         if (patch.status !== undefined) {
           next.status = patch.status;
+          if (patch.status === "done") {
+            next.sharedAt = undefined;
+          }
         }
         if (next.recurrence === "daily" && next.status === "done") {
           next.lastCompletedOn = today;
