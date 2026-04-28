@@ -86,7 +86,22 @@
     "heading": "Сеть Fabric",
     "hint": "WebSocket и сигнализация WebRTC идут в Fabric Hub, где же лежит сохранение задач (/api). В разработке Hub на другом порту, чем Vite — адрес задаёт npm run dev (VITE_HUB_ADDRESS).",
     "sameOriginHint": "Если адрес не задан, используется origin этой страницы (удобно, когда приложение раздаёт сам Hub).",
-    "federationFamilyHint": "Этот Family Tasks объявляет в Hub одну домашнюю федерацию (familytasks-household). Полный каталог федераций см. в JSON реестра распределённых служб."
+    "federationFamilyHint": "Этот Family Tasks объявляет в Hub одну домашнюю федерацию (familytasks-household). Полный каталог федераций см. в JSON реестра распределённых служб.",
+    "peersHeading": "Известные пиры",
+    "peersHint": "Укажите P2P-адрес другого Hub (хост:порт; порт Fabric по умолчанию 7777). Список периодически обновляется.",
+    "peersEmpty": "Пиров пока нет — добавьте выше.",
+    "peersLoadError": "Не удалось загрузить список пиров. Откройте приложение с того же HTTP origin, что и Hub, или настройте proxy /services в dev.",
+    "peersRefresh": "Обновить список",
+    "peerColId": "Идентификатор",
+    "peerColAddress": "Адрес",
+    "peerColStatus": "Связь",
+    "peerConnected": "Связь есть",
+    "peerNotConnected": "Нет связи",
+    "addPeerLabel": "Адрес пира",
+    "addPeerPlaceholder": "127.0.0.1:7777",
+    "addPeerSubmit": "Добавить пир",
+    "addPeerOk": "Запрос на добавление пира принят.",
+    "addPeerError": "Не удалось добавить пир — проверьте адрес и лог Hub."
   },
   "overview": {
     "ariaFamily": "Обзор семьи",

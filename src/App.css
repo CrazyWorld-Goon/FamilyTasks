@@ -501,6 +501,105 @@ body {
   margin-top: 0.65rem !important;
 }
 
+.fabric-network-peers {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e8dfd3;
+}
+
+.fabric-network-peers-heading {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.fabric-network-add-peer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.75rem 0 0.35rem;
+}
+
+.fabric-network-add-peer input {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.fabric-network-add-msg {
+  font-size: 0.9rem;
+  margin: 0.35rem 0;
+  color: var(--muted);
+}
+
+.fabric-network-peer-error {
+  margin: 0.5rem 0;
+  color: #8b4513;
+}
+
+.fabric-network-peers-empty {
+  margin: 0.65rem 0;
+}
+
+.fabric-peer-table-wrap {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+
+.fabric-peer-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.fabric-peer-table th,
+.fabric-peer-table td {
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid #ede4d8;
+  vertical-align: top;
+}
+
+.fabric-peer-table th {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.fabric-peer-cell-id code {
+  font-size: 0.78rem;
+}
+
+.fabric-peer-pill {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+}
+
+.fabric-peer-pill--on {
+  background: #e8f2ea;
+  color: #2d5a34;
+}
+
+.fabric-peer-pill--off {
+  background: #f5f0ea;
+  color: #6a5a4a;
+}
+
+.fabric-peer-raw-status {
+  font-size: 0.8rem;
+  color: var(--muted);
+  display: inline-block;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fabric-network-refresh-peers {
+  margin-top: 0.75rem;
+}
+
 .row {
   display: flex;
   flex-wrap: wrap;

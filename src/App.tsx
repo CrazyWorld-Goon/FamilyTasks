@@ -12,6 +12,7 @@ import type { Locale } from "./i18n/dicts";
 import {
   clearPendingOwnerToken,
   getPendingOwnerTokenUserId,
+  hasOwnerAdminTokenForUser,
   setPendingOwnerToken,
 } from "./fabricTokenClient";
 import { usePersistedApp } from "./hooks/usePersistedApp";
@@ -192,6 +193,15 @@ export default function App() {
 
   useEffect(() => {
     if (!ready || !state) return;
+    const uid =
+      state.family && typeof state.family.ownerUserId === "string" ? state.family.ownerUserId : undefined;
+    if (tab === "network" && !hasOwnerAdminTokenForUser(uid)) {
+      setTab("all");
+    }
+  }, [ready, state, tab]);
+
+  useEffect(() => {
+    if (!ready || !state) return;
     if (members.length === 0) {
       if (tab !== "all" && tab !== "network" && tab !== "shop") setTab("all");
       return;
@@ -349,7 +359,9 @@ export default function App() {
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const shoppingOrdered = sortShoppingForDisplay(state.shopping);
   const repurchase = getRepurchaseCandidates(state.shopping);
-  const activeMember = isMemberId(tab) ? tab : null;
+  const canAccessNetwork = hasOwnerAdminTokenForUser(ownerUserId);
+  const effectiveTab: TabId = tab === "network" && !canAccessNetwork ? "all" : tab;
+  const activeMember = isMemberId(effectiveTab) ? effectiveTab : null;
 
   const rowsForMember = (member: MemberId): { now: Row[]; later: Row[] } => {
     const tasks = state.tasks.filter((t) => t.assignee === member);
@@ -489,28 +501,30 @@ export default function App() {
 
       <nav className="tabs" role="tablist" aria-label={t("tabs.ariaSections")}>
         <div className="tabs-row tabs-row--primary">
-          <button type="button" className="tab tab-all" role="tab" aria-selected={tab === "all"} onClick={() => setTab("all")}>
+          <button type="button" className="tab tab-all" role="tab" aria-selected={effectiveTab === "all"} onClick={() => setTab("all")}>
             <IconUsers size={16} className="tab-icon" />
             {t("tabs.all")}
           </button>
-          <button
-            type="button"
-            className="tab tab-network"
-            role="tab"
-            aria-selected={tab === "network"}
-            onClick={() => setTab("network")}
-            style={{ borderColor: tab === "network" ? "var(--accent)" : undefined }}
-          >
-            <IconNetwork size={16} className="tab-icon" />
-            {t("tabs.network")}
-          </button>
+          {canAccessNetwork ? (
+            <button
+              type="button"
+              className="tab tab-network"
+              role="tab"
+              aria-selected={effectiveTab === "network"}
+              onClick={() => setTab("network")}
+              style={{ borderColor: effectiveTab === "network" ? "var(--accent)" : undefined }}
+            >
+              <IconNetwork size={16} className="tab-icon" />
+              {t("tabs.network")}
+            </button>
+          ) : null}
           <button
             type="button"
             className="tab tab-shop"
             role="tab"
-            aria-selected={tab === "shop"}
+            aria-selected={effectiveTab === "shop"}
             onClick={() => setTab("shop")}
-            style={{ borderColor: tab === "shop" ? "var(--accent-2)" : undefined }}
+            style={{ borderColor: effectiveTab === "shop" ? "var(--accent-2)" : undefined }}
           >
             <IconCart size={16} className="tab-icon" />
             {t("tabs.shop")}
@@ -528,9 +542,9 @@ export default function App() {
               role="tab"
               className="tab"
               title={`${memberRoleLabel(t, m)} — ${m.fullName}`}
-              aria-selected={tab === m.id}
+              aria-selected={effectiveTab === m.id}
               onClick={() => setTab(m.id)}
-              style={{ borderColor: tab === m.id ? m.color : undefined }}
+              style={{ borderColor: effectiveTab === m.id ? m.color : undefined }}
             >
               {m.shortName}
             </button>
@@ -538,7 +552,7 @@ export default function App() {
         </div>
       </nav>
 
-      {tab === "all" ? (
+      {effectiveTab === "all" ? (
         <section aria-label={t("overview.ariaFamily")}>
           <div className="card">
             <h2>
@@ -592,7 +606,7 @@ export default function App() {
           <FamilyMembersPanel members={members} onAdd={addMember} onRemove={removeMember} />
 
         </section>
-      ) : tab === "network" ? (
+      ) : effectiveTab === "network" ? (
         <section aria-label={t("network.aria")} className="network-tab">
           <div className="card fabric-network-card">
             <h2>
@@ -610,7 +624,7 @@ export default function App() {
             <FabricNetwork hubAddress={hubAddress || undefined} showDebug />
           </div>
         </section>
-      ) : tab === "shop" ? (
+      ) : effectiveTab === "shop" ? (
         <section aria-label={t("shopTab.aria")} className="shop-tab">
           <div className="card">
             <h2>

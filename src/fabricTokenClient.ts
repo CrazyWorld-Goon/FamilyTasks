@@ -83,6 +83,13 @@ export function storeFabricOwnerToken(userId: FabricActorId, envelope: FabricOwn
   localStorage.setItem(FABRIC_OWNER_TOKEN_LS_KEY, JSON.stringify(row));
 }
 
+/** True when this browser holds the hub-signed owner envelope for the household owner (network admin UI). */
+export function hasOwnerAdminTokenForUser(ownerUserId: string | undefined): boolean {
+  if (!ownerUserId || !/^[a-f0-9]{64}$/.test(ownerUserId)) return false;
+  const s = getStoredFabricOwnerToken();
+  return !!(s && s.userId === ownerUserId);
+}
+
 export async function fetchIssueOwnerToken(
   userId: FabricActorId,
 ): Promise<
