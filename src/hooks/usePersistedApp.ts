@@ -256,14 +256,24 @@ export function usePersistedApp() {
   }, [update]);
 
   const addTask = useCallback(
-    (title: string, assignee: MemberId, slot: Task["slot"], opts?: { recurrence?: "daily" }) => {
+    (
+      title: string,
+      assignee: MemberId,
+      slot: Task["slot"],
+      opts?: { recurrence?: "daily"; assignees?: MemberId[]; active?: boolean; plannedTime?: string },
+    ) => {
       const id = newFabricEntityIdHex();
+      const normalizedAssignees = opts?.assignees?.length ? Array.from(new Set(opts.assignees)) : undefined;
+      const effectiveAssignee = normalizedAssignees?.[0] ?? assignee;
       const task: Task = {
         id,
         title: title.trim(),
-        assignee,
+        assignee: effectiveAssignee,
+        assignees: normalizedAssignees,
         status: "planned",
         slot,
+        active: opts?.active ?? true,
+        plannedTime: opts?.plannedTime,
         dueDate: todayKey(),
         recurrence: opts?.recurrence,
       };
@@ -290,6 +300,9 @@ export function usePersistedApp() {
         notes?: string;
         status?: TaskStatus;
         daily?: boolean;
+        assignees?: MemberId[];
+        active?: boolean;
+        plannedTime?: string;
       },
     ) => {
       const today = todayKey();
@@ -299,7 +312,14 @@ export function usePersistedApp() {
         const next: Task = { ...existing };
         if (patch.title !== undefined) next.title = patch.title.trim() || existing.title;
         if (patch.assignee !== undefined) next.assignee = patch.assignee;
+        if (patch.assignees !== undefined) {
+          const unique = Array.from(new Set(patch.assignees));
+          next.assignees = unique.length > 0 ? unique : undefined;
+          if (unique.length > 0) next.assignee = unique[0];
+        }
         if (patch.slot !== undefined) next.slot = patch.slot;
+        if (patch.active !== undefined) next.active = patch.active;
+        if (patch.plannedTime !== undefined) next.plannedTime = patch.plannedTime || undefined;
         if (patch.notes !== undefined) {
           const n = patch.notes.trim();
           next.notes = n || undefined;
