@@ -1,4 +1,6 @@
 node_modules
+reports
+coverage
 dist
 *.local
 .DS_Store
