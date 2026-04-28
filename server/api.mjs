@@ -11,9 +11,9 @@
  *      FABRIC_APP_BASE — Vite build base (default `/` in vite.config); must match how `dist/` was built.
  *      HUB_STOCK_UI=1 — leave Hub’s default `/` shell (skip Family Tasks wiring).
  *      FABRIC_HUB_ROOT — optional path to hub.fabric.pub (see scripts/ensureFabricCoreEnvelope.mjs).
- *      `./settings/local.js` — Family Tasks overrides merged after `@fabric/hub/settings/local.js`
+ *      `./settings/local.cjs` — Family Tasks overrides merged after `@fabric/hub/settings/local.js`
  *      (`http.port`, `name`, …); env `PORT` / `FABRIC_HUB_PORT` still wins when set.
- *      FAMILY_TASKS_DEV_HTTP_PORT — optional dev-runner-only preferred API port (defaults to `./settings/local.js` http.port).
+ *      FAMILY_TASKS_DEV_HTTP_PORT — optional dev-runner-only preferred API port (defaults to `./settings/local.cjs` http.port).
  */
 
 import fs from "fs";
@@ -163,7 +163,7 @@ class FamilyTasksHub extends Hub {
 async function main() {
   const settings = buildHubSettings();
   if (Object.keys(familySettingsLocal).length > 0) {
-    console.log("[family-tasks] Merged ./settings/local.js into Hub defaults.");
+    console.log("[family-tasks] Merged ./settings/local.cjs into Hub defaults.");
   }
   const hub = new FamilyTasksHub(settings);
   configureFamilyTasksUi(hub);

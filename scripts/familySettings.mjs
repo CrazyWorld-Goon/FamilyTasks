@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Loads repo-root `settings/local.js` (CommonJS) for merging into Hub defaults.
+ * Loads repo-root `settings/local.cjs` (CommonJS) for merging into Hub defaults.
  */
 
 import fs from "fs";
@@ -18,13 +18,13 @@ export function familyProjectRoot() {
 /** @returns {Record<string, unknown>} */
 export function loadFamilySettingsLocal() {
   const root = familyProjectRoot();
-  const settingsPath = path.join(root, "settings", "local.js");
+  const settingsPath = path.join(root, "settings", "local.cjs");
   if (!fs.existsSync(settingsPath)) return {};
   try {
     return require(settingsPath);
   } catch (err) {
     const msg = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
-    console.warn(`[family-tasks] Failed to load settings/local.js (${settingsPath}): ${msg}`);
+    console.warn(`[family-tasks] Failed to load settings/local.cjs (${settingsPath}): ${msg}`);
     return {};
   }
 }
