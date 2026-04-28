@@ -1,10 +1,5 @@
 $ npm i
 
-> FamilyTasks@0.1.0 postinstall
-> node scripts/ensureFabricCoreEnvelope.mjs
-
-[family-tasks] Patched @fabric/hub: copied fabricDocumentOfferEnvelope.js from /Users/eric/hub.fabric.pub/functions/fabricDocumentOfferEnvelope.js
-
 added 1088 packages, and audited 1089 packages in 6m
 
 133 packages are looking for funding

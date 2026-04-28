@@ -30,7 +30,7 @@ See http://localhost:3900 for the setup.
 | **Express (via Fabric Hub)** | `GET`/`PUT` `/api/state`, JSON Pointer `GET`/`PUT`/`DELETE` `/api/store`, static `dist/` in production |
 | **`@fabric/hub`** | HTTP stack, hub data under `${DATA_DIR}/fabric-hub/` |
 
-Dependencies and scripts are in `package.json` (`concurrently`, `cross-env` for Windows). `postinstall` runs `scripts/ensureFabricCoreEnvelope.mjs`.
+Dependencies and scripts are in `package.json` (`concurrently`, `cross-env` for Windows).
 
 **Русский**
 
@@ -41,7 +41,7 @@ Dependencies and scripts are in `package.json` (`concurrently`, `cross-env` for 
 | **Express (через Fabric Hub)** | `GET`/`PUT` `/api/state`, JSON Pointer `GET`/`PUT`/`DELETE` `/api/store`, в production — раздача `dist/` |
 | **`@fabric/hub`** | HTTP-стек, данные хаба в `${DATA_DIR}/fabric-hub/` |
 
-Зависимости и скрипты — в `package.json` (`concurrently` + `cross-env`). В `postinstall` — `scripts/ensureFabricCoreEnvelope.mjs`.
+Зависимости и скрипты — в `package.json` (`concurrently` + `cross-env`).
 
 ---
 
