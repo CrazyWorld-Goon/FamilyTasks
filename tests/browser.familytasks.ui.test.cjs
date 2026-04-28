@@ -7,8 +7,6 @@
  *   `npm run build` — production bundle served by `server/api.mjs`.
  *   Chrome for Puppeteer — once per machine or CI image: `npm run install:puppeteer-chrome`
  *   (or `npx puppeteer browsers install chrome`).
- *   Hub envelope — postinstall copies `fabricDocumentOfferEnvelope.js` into `@fabric/core` / `@fabric/hub`
- *   from `FABRIC_HUB_ROOT` or `../hub.fabric.pub` when missing.
  *
  * Env:
  *   SKIP_BROWSER_UI=1 — skip suite (e.g. CI without Chrome).

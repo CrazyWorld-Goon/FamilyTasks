@@ -2,13 +2,10 @@ import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
-import { ensureFabricDocumentOfferEnvelope } from "./ensureFabricCoreEnvelope.mjs";
 import { loadFamilySettingsLocal } from "./familySettings.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-
-ensureFabricDocumentOfferEnvelope(root);
 
 function canListen(port) {
   return new Promise((resolve) => {
