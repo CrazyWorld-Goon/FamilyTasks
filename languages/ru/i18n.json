@@ -1,0 +1,266 @@
+{
+  "meta": {
+    "title": "Дом и задачи",
+    "description": "Семейное планирование — задачи, питомцы, покупки"
+  },
+  "loading": "Загружаем дом…",
+  "errors": {
+    "persist": {
+      "invalidData": "Неверный формат данных",
+      "network": "Сеть или сервер недоступны",
+      "saveFailed": "Не удалось сохранить",
+      "http": "HTTP {{status}}"
+    },
+    "unknown": "Неизвестная ошибка"
+  },
+  "sync": {
+    "noServerBold": "Нет связи с сервером",
+    "hint": "Нужен запущенный API (см. README). Команда:",
+    "retry": "Повторить"
+  },
+  "saveBanner": "Не удалось сохранить на сервер:",
+  "dismiss": "Скрыть",
+  "brand": {
+    "title": "Дом и задачи",
+    "tagline": "Семья · питомцы · покупки"
+  },
+  "memberRoles": {
+    "anya": "Мама",
+    "seryozha": "Мужик",
+    "tamara": "Дочь",
+    "luka": "Сын"
+  },
+  "tabs": {
+    "ariaSections": "Разделы",
+    "all": "Все",
+    "shop": "Купить",
+    "tasks": "Задачи",
+    "tasksTitle": "Список задач: правка, удаление"
+  },
+  "overview": {
+    "ariaFamily": "Обзор семьи",
+    "currentHeading": "Сейчас: актуальные дела",
+    "currentHintBefore": "Важные дела, поручения и питомцы по фазе дня:",
+    "currentHintMiddle": "",
+    "memberAllTasks": "Все дела",
+    "memberNowEmpty": "Сейчас срочного нет."
+  },
+  "personView": {
+    "personalHint": "Личный вид · фаза дня:",
+    "nowHeading": "Актуально сейчас",
+    "nowHint": "То что нужно сделать в ближайшее время.",
+    "nowEmpty": "Сейчас тихо — загляните в «Дальше по списку» или добавьте задачу.",
+    "laterHeading": "Дальше по списку",
+    "laterHint": "Запланировано не на этот отрезок дня. После «готово» строка остаётся на месте, меняется только статус.",
+    "laterEmpty": "Нет отложенных задач и ухода — отличный день.",
+    "quickTaskHeading": "Быстрая задача",
+    "quickTaskPlaceholder": "Что сделать?",
+    "quickTaskTimeAria": "Точное время задачи",
+    "quickTaskSubmit": "Добавить себе",
+    "dailyCheckbox": "Каждый день (снова в плане после смены дня)"
+  },
+  "shopTab": {
+    "aria": "Список покупок",
+    "headingAll": "Всё, что в списке",
+    "hintAfterBuy": "После «куплено» позиция строки не меняется, только статус. Ненужное можно убрать (иконка корзины).",
+    "empty": "Пока пусто — добавьте новый пункт в форме ниже.",
+    "buyAgainHeading": "Купить ещё",
+    "buyAgainHint": "Вернуть в открытый список купленное раньше (сейчас нет открытой строки с таким названием).",
+    "buyAgainAria": "Повторить покупку",
+    "dontSuggestTitle": "Больше не предлагать эту покупку",
+    "dontSuggestAria": "Не покупать",
+    "backToList": "Снова в список",
+    "addHeading": "Добавить, что купить",
+    "addHint": "Один список для семьи: кому купит — тому в «Сейчас» на личной вкладке.",
+    "placeholderNewItem": "Например: молоко, корм для кота…",
+    "ariaNewItem": "Новый пункт покупок",
+    "ariaAssigneeToTasks": "Кому в задачи",
+    "willBuyPrefix": "Купит:",
+    "addButton": "В список"
+  },
+  "badTab": {
+    "message": "Некорректная вкладка. Возвращаюсь к разделу «Все»…",
+    "openAll": "Открыть «Все»"
+  },
+  "footer": {
+    "serverBadgeTitle": "Общее состояние на сервере приложения",
+    "serverBadgePrefix": "Сервер ·"
+  },
+  "doneConfirm": {
+    "aria": "Подтверждение отмены",
+    "title": "Отменить?",
+    "undoTask": "Снять отметку с дела",
+    "undoPet": "Вернуть дело по питомцам в план",
+    "undoShop": "Снять отметку с покупки",
+    "quotedSuffix": "«{{title}}».",
+    "confirmUndo": "Отменить",
+    "keepDone": "Дело сделано",
+    "toastTask": "Отметка снята: задача снова в работе.",
+    "toastPet": "Отметка снята: дело по питомцам снова в плане.",
+    "toastShop": "Отметка снята: покупка снова в списке."
+  },
+  "removeConfirm": {
+    "aria": "Подтверждение удаления",
+    "title": "Точно удалить?",
+    "shopBody": "Позиция «{{title}}» будет удалена из списка покупок.",
+    "repurchaseBody": "«{{title}}» больше не будет показываться в блоке «Купить ещё».",
+    "confirmRemove": "Удалить",
+    "keep": "Оставить",
+    "toastShopRemoved": "Позиция убрана из списка.",
+    "toastRepurchaseRemoved": "«{{title}}» убрано из подсказок и истории."
+  },
+  "toasts": {
+    "walkSkipped": "Ок — один прогулочный слот можно не брать в зачёт дня. Всё под контролем.",
+    "shopAdded": "Пункт добавлен в общий список.",
+    "taskAddedDaily": "Задача на каждый день добавлена.",
+    "taskAdded": "Задача добавлена.",
+    "boughtHome": "«{{title}}» — в корзине дома.",
+    "repurchaseOpen": "«{{title}}» снова ожидает покупки.",
+    "taskSaved": "Задача сохранена.",
+    "taskDeleted": "Задача удалена."
+  },
+  "tasksManage": {
+    "title": "Задачи семьи",
+    "closeAria": "Закрыть",
+    "hint": "Редактирование и удаление — без «списка покупок» и питомцев, только ваши поручения.",
+    "modeRegular": "Разовые задачи",
+    "modePermanent": "Постоянные задания",
+    "empty": "Пока нет задач — добавьте в разделе члена семьи.",
+    "permanentEmpty": "Пока нет постоянных заданий.",
+    "permanentTitlePlaceholder": "Название постоянного задания",
+    "permanentTitleAria": "Название постоянного задания",
+    "assigneesLabel": "Кто выполняет",
+    "whenLabel": "Когда",
+    "whenTypeLabel": "Тип расписания",
+    "whenTypeSlot": "Слот",
+    "whenTypeTime": "Точное время",
+    "slotExactTimeOption": "В точное время",
+    "exactTimeLabel": "Точное время (HH:MM)",
+    "validationTitleRequired": "Введите название постоянного задания.",
+    "validationAssigneeRequired": "Выберите хотя бы одного исполнителя.",
+    "validationTimeRequired": "Укажите точное время.",
+    "validationTimeInvalid": "Введите корректное время в формате HH:MM.",
+    "assigneesSelectAll": "Выбрать всех",
+    "assigneesClear": "Снять всех",
+    "assigneesNoneSelected": "не выбрано",
+    "assigneesSummary": "Выбраны: {{names}}",
+    "previewRule": "Каждый день, {{when}}, выполняет любой: {{assignees}}, {{activeState}}.",
+    "activeLabel": "Активно",
+    "active": "вкл",
+    "inactive": "выкл",
+    "addPermanent": "Добавить постоянное",
+    "anyAssigneeDone": "Выполняет любой из выбранных",
+    "deleteConfirm": "Удалить задачу «{{title}}»? Это нельзя отменить.",
+    "titleLabelAria": "Название",
+    "assigneeLabel": "Кому",
+    "slotLabel": "Слот",
+    "notesLabel": "Доп. сведения",
+    "dailyCheckbox": "Каждый день",
+    "statusLabel": "Статус",
+    "statusPlanned": "В плане",
+    "statusDone": "Сделано",
+    "statusSkipped": "Пропущено",
+    "statusDeferred": "Перенесено",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "dailyBadge": "каждый день",
+    "metaEffDoneDaily": "сегодня сделано",
+    "metaEffDone": "сделано",
+    "metaEffPlanned": "к делу",
+    "metaEffTitle": "С учётом «на сегодня»",
+    "editTitle": "Редактировать",
+    "editAria": "Редактировать",
+    "deleteTitle": "Удалить",
+    "deleteAria": "Удалить",
+    "hintFooter": "Чтобы создать новую задачу, оставьте панель и откройте вкладку семьи — блок «Быстрая задача».",
+    "doneButton": "Готово"
+  },
+  "slots": {
+    "morning": "Утро",
+    "day": "День",
+    "evening": "Вечер",
+    "night": "Почти ночь",
+    "any": "В любое время",
+    "slotHint": "Задача · слот:",
+    "slotHintShort": {
+      "morning": "утро",
+      "day": "день",
+      "evening": "вечер",
+      "night": "почти ночь",
+      "any": "любое"
+    }
+  },
+  "statusLabels": {
+    "pendingShopping": "Ожидает покупки",
+    "pendingActivity": "Ожидает выполнения",
+    "missedSlot": "не сделано",
+    "statusGeneric": "Статус",
+    "slotMissedTitle": "Слот прошёл, задача не закрыта",
+    "feedWindow": "в окне ±1 ч",
+    "walkSoft": "мягкий сценарий",
+    "dailyRepeatTitle": "Повторяется каждый день"
+  },
+  "phase": {
+    "morning": "Утро",
+    "day": "День",
+    "evening": "Вечер",
+    "night": "Почти ночь",
+    "sleep": "Время сна"
+  },
+  "taskRow": {
+    "metaSlot": "Задача · слот: {{slot}}",
+    "metaTime": "Задача · время: {{time}}",
+    "request": "Попросить",
+    "notesPlaceholder": "Уточнения: что взять, куда, на сколько…",
+    "notesAria": "Дополнение к задаче",
+    "saveNotes": "Сохранить",
+    "close": "Закрыть",
+    "editNotes": "Изменить уточнения",
+    "addNotes": "Дополнить деталями",
+    "done": "Готово",
+    "doneToday": "Сегодня сделано",
+    "undoDoneAria": "Сделано сегодня. Нажмите, чтобы открыть подтверждение отмены.",
+    "doneAria": "Сделано. Нажмите, чтобы открыть подтверждение отмены."
+  },
+  "taskRequest": {
+    "aria": "Выбор исполнителей задачи",
+    "title": "Кого попросить",
+    "hint": "Задача «{{title}}» будет считаться выполненной, если её сделает любой из выбранных.",
+    "selectAll": "Выбрать всех",
+    "clearAll": "Снять всех",
+    "validationAssigneeRequired": "Выберите хотя бы одного исполнителя.",
+    "save": "Сохранить",
+    "cancel": "Отмена"
+  },
+  "shopRow": {
+    "purchaseMeta": "Покупка ·",
+    "buysStrong": "купит:",
+    "familyFallback": "семья",
+    "boughtAria": "Покупка отмечена. Нажмите, чтобы открыть подтверждение отмены.",
+    "pendingBuyTitle": "Ожидает покупки",
+    "removeTitle": "Убрать из списка",
+    "removeAria": "Убрать из списка",
+    "boughtButton": "куплено",
+    "boughtStatus": "Куплено"
+  },
+  "petRow": {
+    "planPrefix": "План:",
+    "petDone": "Сделано",
+    "walkSkipTitle": "Пропустить без стресса",
+    "skipWalk": "Пропуск",
+    "skipAria": "Пропуск отмечен. Нажмите, чтобы открыть подтверждение отмены.",
+    "walkDoneAria": "Сделано. Нажмите, чтобы открыть подтверждение отмены."
+  },
+  "petRoutine": {
+    "feedMorning": "Покормить (утро)",
+    "feedEvening": "Покормить (вечер)",
+    "walkMorning": "Прогулка (утро)",
+    "walk1800": "Прогулка (18:00)",
+    "walkBeforeSleep": "Прогулка (перед сном)"
+  },
+  "lang": {
+    "label": "Язык",
+    "en": "English",
+    "ru": "Русский"
+  }
+}

@@ -15,6 +15,7 @@ export function buildVirtualPetTasks(
   dateKey: string,
   now: Date,
   petCompletions: Record<string, TaskStatus>,
+  routineLabel: (labelKey: string) => string,
 ): VirtualPetTask[] {
   const nowMin = minutesFromMidnight(now);
   const out: VirtualPetTask[] = [];
@@ -30,7 +31,7 @@ export function buildVirtualPetTasks(
 
       out.push({
         id: key,
-        title: `${pet.name} — ${slot.label}`,
+        title: `${pet.name} — ${routineLabel(slot.labelKey)}`,
         assignee,
         status,
         petId: pet.id,

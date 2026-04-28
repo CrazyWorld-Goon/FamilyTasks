@@ -22,10 +22,10 @@ export interface Pet {
   species: PetSpecies;
 }
 
-/** Плановое время в минутах от полуночи */
+/** Плановое время в минутах от полуночи. `labelKey` — путь в i18n (например petRoutine.feedMorning). */
 export interface PetRoutineSlot {
   kind: PetCareKind;
-  label: string;
+  labelKey: string;
   minutes: number;
 }
 
@@ -33,18 +33,31 @@ export interface Task {
   id: string;
   title: string;
   assignee: MemberId;
+  /** Для постоянных/общих задач: несколько исполнителей, любой может закрыть задачу за день. */
+  assignees?: MemberId[];
+  /** Для постоянных задач: активность шаблона (если false — не показывать в ежедневных списках). */
+  active?: boolean;
   status: TaskStatus;
   slot: TimeSlot;
+  /** Опциональное точное время выполнения (HH:MM). */
+  plannedTime?: string;
   /** ISO date YYYY-MM-DD, опционально */
   dueDate?: string;
+  /** Если задано — снова в плане после смены дня, пока не отмечено сегодня. */
+  recurrence?: "daily";
+  /** Для daily: YYYY-MM-DD, когда в последний раз нажали «готово». */
+  lastCompletedOn?: string;
   petId?: string;
   petKind?: PetCareKind;
   /** Связь с пунктом покупок */
   shoppingItemId?: string;
+  /** Пояснения, что именно сделать сегодня. */
   notes?: string;
 }
 
 export type ShoppingStatus = "open" | "bought";
+
+export type TabId = "all" | "shop" | MemberId;
 
 export interface ShoppingItem {
   id: string;
@@ -53,6 +66,8 @@ export interface ShoppingItem {
   assignee: MemberId;
   status: ShoppingStatus;
   createdAt: string;
+  /** Когда отметили «куплено» (YYYY-MM-DD), для сортировки */
+  boughtAt?: string;
 }
 
 export interface AppState {
@@ -60,9 +75,7 @@ export interface AppState {
   shopping: ShoppingItem[];
 }
 
-export type TabId = "all" | MemberId;
-
-export type DayPhase = "morning" | "day" | "evening" | "night";
+export type DayPhase = "morning" | "day" | "evening" | "night" | "sleep";
 
 export interface VirtualPetTask {
   id: string;

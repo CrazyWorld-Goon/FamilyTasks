@@ -1,9 +1,10 @@
 import type { DayPhase, MemberId, ShoppingItem, Task, TaskStatus, TimeSlot, VirtualPetTask } from "../types";
-import { getDayPhase, inWindow, slotMatchesPhase } from "./time";
+import { getEffectiveTaskStatus } from "./taskDay";
+import { isTaskSlotMissedToday } from "./slotMissed";
+import { getDayPhase, inWindow, parseHHMMToMinutes, slotFromMinutes, slotMatchesPhase } from "./time";
 
-/** Прогулка: показываем в «сейчас» в своём слоте + мягкое продление на соседнюю фазу */
-export function petTaskRelevantNow(v: VirtualPetTask, phase: DayPhase, nowMin: number): boolean {
-  if (v.status !== "planned") return false;
+/** Окно «актуально по времени» для питомца — без учёта статуса (для строк «готово» в том же блоке). */
+export function petRelevantWindow(v: VirtualPetTask, phase: DayPhase, nowMin: number): boolean {
   if (v.kind === "feed") {
     if (inWindow(nowMin, v.plannedMinutes, 60)) return true;
     const planH = Math.floor(v.plannedMinutes / 60);
@@ -22,9 +23,25 @@ export function petTaskRelevantNow(v: VirtualPetTask, phase: DayPhase, nowMin: n
   return phase === "evening" || phase === "night";
 }
 
-export function taskRelevantNow(t: Task, phase: DayPhase): boolean {
-  if (t.status !== "planned") return false;
-  return slotMatchesPhase(t.slot, phase);
+/** Прогулка: показываем в «сейчас» в своём слоте + мягкое продление на соседнюю фазу */
+export function petTaskRelevantNow(v: VirtualPetTask, phase: DayPhase, nowMin: number): boolean {
+  if (v.status !== "planned") return false;
+  return petRelevantWindow(v, phase, nowMin);
+}
+
+/** Окно слота / фазы для задачи — без учёта статуса выполнения. */
+export function taskRelevantWindow(t: Task, phase: DayPhase, today: string, now: Date = new Date()): boolean {
+  const plannedMinutes = parseHHMMToMinutes(t.plannedTime);
+  const effectiveSlot = plannedMinutes != null ? slotFromMinutes(plannedMinutes) : t.slot;
+  if (effectiveSlot === "any") return slotMatchesPhase(effectiveSlot, phase);
+  if (effectiveSlot === "sleep") return phase === "sleep";
+  if (slotMatchesPhase(effectiveSlot, phase)) return true;
+  return isTaskSlotMissedToday(t, now, today);
+}
+
+export function taskRelevantNow(t: Task, phase: DayPhase, today: string, now: Date = new Date()): boolean {
+  if (getEffectiveTaskStatus(t, today) !== "planned") return false;
+  return taskRelevantWindow(t, phase, today, now);
 }
 
 export function shoppingAsTasksForMember(
@@ -51,13 +68,14 @@ export function aggregateForAll(
 ): { member: MemberId; relevant: number; planned: number }[] {
   const phase = getDayPhase(now);
   const nowMin = now.getHours() * 60 + now.getMinutes();
+  const dkey = now.toISOString().slice(0, 10);
   const members: MemberId[] = ["anya", "seryozha", "tamara", "luka"];
   return members.map((member) => {
-    const relTasks = tasks.filter((t) => t.assignee === member && taskRelevantNow(t, phase));
+    const relTasks = tasks.filter((t) => t.assignee === member && taskRelevantNow(t, phase, dkey, now));
     const relPets = virtualPets.filter((v) => v.assignee === member && petTaskRelevantNow(v, phase, nowMin));
-    const shopTasks = shoppingAsTasksForMember(shopping, member).filter((t) => taskRelevantNow(t, phase));
+    const shopTasks = shoppingAsTasksForMember(shopping, member).filter((t) => taskRelevantNow(t, phase, dkey, now));
     const planned =
-      tasks.filter((t) => t.assignee === member && t.status === "planned").length +
+      tasks.filter((t) => t.assignee === member && getEffectiveTaskStatus(t, dkey) === "planned").length +
       virtualPets.filter((v) => v.assignee === member && v.status === "planned").length +
       shopping.filter((s) => s.assignee === member && s.status === "open").length;
     return {
