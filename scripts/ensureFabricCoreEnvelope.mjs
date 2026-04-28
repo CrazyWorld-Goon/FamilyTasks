@@ -2,12 +2,13 @@
 
 /**
  * Some installs omit `functions/fabricDocumentOfferEnvelope.js` while Fabric packages still require it.
- * The Hub repo (`hub.fabric.pub`) carries the canonical file — copy it into `@fabric/core` and/or
- * `@fabric/hub` so `node server/api.mjs` can boot without a custom `npm link`.
+ * Copy into `@fabric/core` and/or `@fabric/hub` from `FABRIC_HUB_ROOT`, a sibling hub checkout,
+ * or `vendor/fabricDocumentOfferEnvelope.js` bundled with FamilyTasks.
  *
  * Lookup order:
  * 1. `$FABRIC_HUB_ROOT/functions/fabricDocumentOfferEnvelope.js`
  * 2. `<projectRoot>/../hub.fabric.pub/functions/...` (sibling checkout)
+ * 3. `<projectRoot>/vendor/fabricDocumentOfferEnvelope.js` (bundled — no extra clone)
  */
 
 import fs from "fs";
@@ -20,6 +21,7 @@ function resolveSrc(projectRoot) {
   const candidates = [
     process.env.FABRIC_HUB_ROOT && path.join(process.env.FABRIC_HUB_ROOT, "functions", "fabricDocumentOfferEnvelope.js"),
     path.join(projectRoot, "..", "hub.fabric.pub", "functions", "fabricDocumentOfferEnvelope.js"),
+    path.join(projectRoot, "vendor", "fabricDocumentOfferEnvelope.js"),
   ].filter(Boolean);
 
   for (const p of candidates) {
@@ -46,8 +48,9 @@ export function ensureFabricDocumentOfferEnvelope(projectRoot, opts = {}) {
   const src = resolveSrc(projectRoot);
   if (!src) {
     const msg =
-      "Missing fabricDocumentOfferEnvelope.js for @fabric/core and/or @fabric/hub — clone hub.fabric.pub beside this repo " +
-      "(../hub.fabric.pub) or set FABRIC_HUB_ROOT, then run: node scripts/ensureFabricCoreEnvelope.mjs";
+      "Missing fabricDocumentOfferEnvelope.js for @fabric/core and/or @fabric/hub and no bundled vendor copy — " +
+      "restore FamilyTasks/vendor/fabricDocumentOfferEnvelope.js, clone hub.fabric.pub beside this repo " +
+      "(../hub.fabric.pub), or set FABRIC_HUB_ROOT, then run: node scripts/ensureFabricCoreEnvelope.mjs";
     if (throwIfMissing) {
       throw new Error(`[family-tasks] ${msg}`);
     }
