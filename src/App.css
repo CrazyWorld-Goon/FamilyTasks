@@ -592,6 +592,10 @@ body {
   max-width: 100%;
 }
 
+.row-actions--task {
+  justify-content: flex-end;
+}
+
 /* Пилюли статуса: ожидание / просрочено по слоту / готово */
 .status-pill {
   display: inline-flex;
@@ -632,6 +636,10 @@ body {
 .status-pill-button {
   border: 1px solid #5a7a60;
   cursor: pointer;
+}
+
+.task-done-status-left {
+  margin-right: auto;
 }
 
 .confirm-backdrop {
@@ -688,6 +696,10 @@ body {
     flex-basis: 100%;
     max-width: 100%;
     justify-content: flex-start;
+  }
+
+  .row-actions--task {
+    justify-content: flex-end;
   }
 
   .status-pill--pending,

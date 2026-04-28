@@ -30,7 +30,8 @@ type Row =
 
 type DoneConfirmState =
   | { kind: "task"; id: string; title: string }
-  | { kind: "shop"; id: string; title: string };
+  | { kind: "shop"; id: string; title: string }
+  | { kind: "pet"; id: string; title: string };
 
 type RemoveConfirmState =
   | { kind: "shop"; id: string; title: string }
@@ -294,6 +295,10 @@ export default function App() {
     setPetCompletion(pet.id, "done");
   };
 
+  const onRequestUndoPet = (pet: VirtualPetTask) => {
+    setDoneConfirm({ kind: "pet", id: pet.id, title: pet.title });
+  };
+
   const onSkipPetWalk = (pet: VirtualPetTask) => {
     setPetCompletion(pet.id, "skipped");
     showToast("Ок — один прогулочный слот можно не брать в зачёт дня. Всё под контролем.");
@@ -441,6 +446,7 @@ export default function App() {
                         onSetTaskNotes={setTaskNotes}
                         onDoneTask={onDoneTask}
                         onDonePet={onDonePet}
+                        onRequestUndoPet={onRequestUndoPet}
                         onSkipPetWalk={onSkipPetWalk}
                         onBought={onBought}
                         onRequestUndoTask={onRequestUndoTask}
@@ -474,6 +480,7 @@ export default function App() {
                   onSetTaskNotes={setTaskNotes}
                   onDoneTask={onDoneTask}
                   onDonePet={onDonePet}
+                  onRequestUndoPet={onRequestUndoPet}
                   onSkipPetWalk={onSkipPetWalk}
                   onBought={onBought}
                   onRequestUndoTask={onRequestUndoTask}
@@ -567,6 +574,7 @@ export default function App() {
           rowsForMember={rowsForMember(activeMember)}
           onDoneTask={onDoneTask}
           onDonePet={onDonePet}
+          onRequestUndoPet={onRequestUndoPet}
           onSkipPetWalk={onSkipPetWalk}
           onBought={onBought}
           onRequestUndoTask={onRequestUndoTask}
@@ -609,7 +617,12 @@ export default function App() {
           >
             <h3>Отменить?</h3>
             <p className="section-hint">
-              {doneConfirm.kind === "task" ? "Снять отметку с дела" : "Снять отметку с покупки"} «{doneConfirm.title}».
+              {doneConfirm.kind === "task"
+                ? "Снять отметку с дела"
+                : doneConfirm.kind === "pet"
+                  ? "Вернуть дело по питомцам в план"
+                  : "Снять отметку с покупки"}{" "}
+              «{doneConfirm.title}».
             </p>
             <div className="confirm-actions">
               <button
@@ -619,6 +632,9 @@ export default function App() {
                   if (doneConfirm.kind === "task") {
                     setTaskStatus(doneConfirm.id, "planned");
                     showToast("Отметка снята: задача снова в работе.");
+                  } else if (doneConfirm.kind === "pet") {
+                    setPetCompletion(doneConfirm.id, "planned");
+                    showToast("Отметка снята: дело по питомцам снова в плане.");
                   } else {
                     reopenShoppingItem(doneConfirm.id);
                     showToast("Отметка снята: покупка снова в списке.");
@@ -712,6 +728,7 @@ function PersonSection({
   rowsForMember,
   onDoneTask,
   onDonePet,
+  onRequestUndoPet,
   onSkipPetWalk,
   onBought,
   onRequestUndoTask,
@@ -734,6 +751,7 @@ function PersonSection({
   rowsForMember: { now: Row[]; later: Row[] };
   onDoneTask: (t: Task) => void;
   onDonePet: (p: VirtualPetTask) => void;
+  onRequestUndoPet: (p: VirtualPetTask) => void;
   onSkipPetWalk: (p: VirtualPetTask) => void;
   onBought: (s: ShoppingItem) => void;
   onRequestUndoTask: (t: Task) => void;
@@ -789,6 +807,7 @@ function PersonSection({
               onSetTaskNotes={onSetTaskNotes}
               onDoneTask={onDoneTask}
               onDonePet={onDonePet}
+              onRequestUndoPet={onRequestUndoPet}
               onSkipPetWalk={onSkipPetWalk}
               onBought={onBought}
               onRequestUndoTask={onRequestUndoTask}
@@ -821,6 +840,7 @@ function PersonSection({
               onSetTaskNotes={onSetTaskNotes}
               onDoneTask={onDoneTask}
               onDonePet={onDonePet}
+              onRequestUndoPet={onRequestUndoPet}
               onSkipPetWalk={onSkipPetWalk}
               onBought={onBought}
               onRequestUndoTask={onRequestUndoTask}
@@ -922,7 +942,7 @@ function TaskItemRow({
           </button>
         )}
       </div>
-      <div className="row-actions">
+      <div className="row-actions row-actions--task">
         {eff === "planned" ? (
           <>
             <span
@@ -939,7 +959,7 @@ function TaskItemRow({
         ) : (
           <button
             type="button"
-            className="status-pill status-pill--done status-pill-button"
+            className="status-pill status-pill--done status-pill-button task-done-status-left"
             aria-label="Сделано сегодня. Нажмите, чтобы открыть подтверждение отмены."
             onClick={() => onRequestUndoTask(task)}
           >
@@ -960,6 +980,7 @@ function RowView({
   onSetTaskNotes,
   onDoneTask,
   onDonePet,
+  onRequestUndoPet,
   onSkipPetWalk,
   onBought,
   onRequestUndoTask,
@@ -973,6 +994,7 @@ function RowView({
   onSetTaskNotes: (id: string, n: string) => void;
   onDoneTask: (t: Task) => void;
   onDonePet: (p: VirtualPetTask) => void;
+  onRequestUndoPet: (p: VirtualPetTask) => void;
   onSkipPetWalk: (p: VirtualPetTask) => void;
   onBought: (s: ShoppingItem) => void;
   onRequestUndoTask: (t: Task) => void;
@@ -1104,15 +1126,25 @@ function RowView({
             ) : null}
           </>
         ) : pet.status === "skipped" ? (
-          <span className="status-pill status-pill--done" role="img" aria-label="Пропуск">
+          <button
+            type="button"
+            className="status-pill status-pill--done status-pill-button"
+            aria-label="Пропуск отмечен. Нажмите, чтобы открыть подтверждение отмены."
+            onClick={() => onRequestUndoPet(pet)}
+          >
             <IconSkip size={16} className="status-pill__icon" />
             Пропуск
-          </span>
+          </button>
         ) : (
-          <span className="status-pill status-pill--done" role="img" aria-label="Сделано">
+          <button
+            type="button"
+            className="status-pill status-pill--done status-pill-button"
+            aria-label="Сделано. Нажмите, чтобы открыть подтверждение отмены."
+            onClick={() => onRequestUndoPet(pet)}
+          >
             <IconCheck size={16} className="status-pill__icon" />
             Сделано
-          </span>
+          </button>
         )}
       </div>
     </div>
