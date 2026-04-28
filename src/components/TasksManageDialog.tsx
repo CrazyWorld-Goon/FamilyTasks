@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { MEMBERS } from "../constants";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { DEFAULT_MEMBERS } from "../constants";
 import { useI18n } from "../i18n/I18nProvider";
 import { IconCheck, IconPencil, IconPlus, IconTrash, IconListChecks, IconClose } from "./Icons";
 import { getEffectiveTaskStatus } from "../logic/taskDay";
-import type { MemberId, Task, TimeSlot } from "../types";
+import type { FamilyMember, MemberId, Task, TimeSlot } from "../types";
 
 function slotShort(tFn: (path: string) => string, slot: TimeSlot): string {
   return tFn(`slots.slotHintShort.${slot}`);
@@ -22,6 +22,7 @@ type UpdatePayload = {
   notes: string;
   daily: boolean;
   status: Task["status"];
+  fabricPublished: boolean;
 };
 
 type PermanentPayload = {
@@ -31,6 +32,7 @@ type PermanentPayload = {
   plannedTime?: string;
   active: boolean;
   scheduleMode: "slot" | "time";
+  fabricPublished: boolean;
 };
 
 function normalizeHHMM(raw: string): string | null {
@@ -54,6 +56,7 @@ function taskToEditForm(task: Task): UpdatePayload {
     notes: task.notes ?? "",
     daily: task.recurrence === "daily",
     status: task.status,
+    fabricPublished: Boolean(task.fabricPublished),
   };
 }
 
@@ -61,24 +64,28 @@ export function TasksManageDialog({
   open,
   onClose,
   tasks,
+  members,
   dayKey,
   onUpdate,
   onCreatePermanent,
   onUpdatePermanent,
   onDelete,
+  fabricTasksPublic = false,
 }: {
   open: boolean;
   onClose: () => void;
   tasks: Task[];
+  members: FamilyMember[];
   dayKey: string;
   onUpdate: (id: string, data: UpdatePayload) => void;
   onCreatePermanent: (data: PermanentPayload) => void;
   onUpdatePermanent: (id: string, data: PermanentPayload) => void;
   onDelete: (id: string) => void;
+  fabricTasksPublic?: boolean;
 }) {
   const { t, locale } = useI18n();
   const titleId = useId();
-  const fallbackMember: MemberId = MEMBERS[0]?.id ?? "anya";
+  const fallbackMember: MemberId = members[0]?.id ?? DEFAULT_MEMBERS[0]!.id;
   const [mode, setMode] = useState<"regular" | "permanent">("regular");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<UpdatePayload | null>(null);
@@ -89,11 +96,11 @@ export function TasksManageDialog({
     plannedTime: undefined,
     active: true,
     scheduleMode: "slot",
+    fabricPublished: false,
   });
   const [editingPermanentId, setEditingPermanentId] = useState<string | null>(null);
   const [editingPermanent, setEditingPermanent] = useState<PermanentPayload | null>(null);
   const [permanentSubmitAttempted, setPermanentSubmitAttempted] = useState(false);
-  const permanentTitleRef = useRef<HTMLInputElement | null>(null);
 
   const slotOptions = useMemo(
     () =>
@@ -112,7 +119,7 @@ export function TasksManageDialog({
   );
 
   const sorted = useMemo(() => {
-    const order = new Map(MEMBERS.map((m, i) => [m.id, i]));
+    const order = new Map(members.map((m, i) => [m.id, i]));
     const collator = locale === "ru" ? "ru" : "en";
     return [...tasks].sort((a, b) => {
       const oa = order.get(a.assignee) ?? 99;
@@ -120,7 +127,7 @@ export function TasksManageDialog({
       if (oa !== ob) return oa - ob;
       return a.title.localeCompare(b.title, collator);
     });
-  }, [tasks, locale]);
+  }, [tasks, locale, members]);
   const regularTasks = useMemo(() => sorted.filter((tItem) => tItem.recurrence !== "daily"), [sorted]);
   const permanentTasks = useMemo(() => sorted.filter((tItem) => tItem.recurrence === "daily"), [sorted]);
 
@@ -187,6 +194,7 @@ export function TasksManageDialog({
       plannedTime: undefined,
       active: true,
       scheduleMode: "slot",
+      fabricPublished: false,
     });
     setPermanentSubmitAttempted(false);
   }, [fallbackMember, onCreatePermanent, permanentForm]);
@@ -201,6 +209,7 @@ export function TasksManageDialog({
       plannedTime: task.plannedTime,
       active: task.active !== false,
       scheduleMode: task.plannedTime ? "time" : "slot",
+      fabricPublished: Boolean(task.fabricPublished),
     });
   }, []);
 
@@ -241,11 +250,6 @@ export function TasksManageDialog({
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open || mode !== "permanent") return;
-    permanentTitleRef.current?.focus();
-  }, [mode, open]);
-
   const normalizedPermanentTime = useMemo(
     () => (permanentForm.plannedTime ? normalizeHHMM(permanentForm.plannedTime) : null),
     [permanentForm.plannedTime],
@@ -266,10 +270,10 @@ export function TasksManageDialog({
   const isPermanentFormValid = !permanentTitleError && !permanentAssigneesError && !permanentTimeError;
   const permanentAssigneesText = useMemo(() => {
     const names = permanentForm.assignees
-      .map((id) => MEMBERS.find((m) => m.id === id)?.shortName ?? id)
+      .map((id) => members.find((m) => m.id === id)?.shortName ?? id)
       .join(", ");
     return names || t("tasksManage.assigneesNoneSelected");
-  }, [permanentForm.assignees, t]);
+  }, [permanentForm.assignees, members, t]);
   const permanentWhenText = permanentForm.scheduleMode === "time"
     ? normalizedPermanentTime ?? (permanentForm.plannedTime || "--:--")
     : slotShort(t, permanentForm.slot);
@@ -343,7 +347,7 @@ export function TasksManageDialog({
             <ul className="task-manage-list">
               {regularTasks.map((taskItem) => {
                 const eff = getEffectiveTaskStatus(taskItem, dayKey);
-                const m = MEMBERS.find((x) => x.id === taskItem.assignee);
+                const m = members.find((x) => x.id === taskItem.assignee);
                 const isEdit = editingId === taskItem.id && form;
 
                 return (
@@ -388,7 +392,7 @@ export function TasksManageDialog({
                               value={form.assignee}
                               onChange={(e) => setForm({ ...form, assignee: e.target.value as MemberId })}
                             >
-                              {MEMBERS.map((mem) => (
+                              {members.map((mem) => (
                                 <option key={mem.id} value={mem.id}>
                                   {mem.shortName}
                                 </option>
@@ -439,6 +443,16 @@ export function TasksManageDialog({
                             </label>
                           ) : null}
                         </div>
+                        {fabricTasksPublic ? (
+                          <label className="checkbox-line task-manage-inline-check">
+                            <input
+                              type="checkbox"
+                              checked={form.fabricPublished}
+                              onChange={(e) => setForm({ ...form, fabricPublished: e.target.checked })}
+                            />
+                            {t("tasksManage.publishOnFabric")}
+                          </label>
+                        ) : null}
                         <div className="task-manage-form-actions">
                           <button type="button" className="btn btn-primary" onClick={() => saveEdit(taskItem.id)}>
                             <IconCheck size={16} />
@@ -458,6 +472,11 @@ export function TasksManageDialog({
                             <span>· {taskItem.plannedTime ?? slotShort(t, taskItem.slot)}</span>
                             {taskItem.recurrence === "daily" ? (
                               <span className="badge badge-daily">{t("tasksManage.dailyBadge")}</span>
+                            ) : null}
+                            {fabricTasksPublic && taskItem.fabricPublished ? (
+                              <span className="badge badge-fabric" title={t("tasksManage.publishOnFabricHint")}>
+                                {t("tasksManage.fabricBadge")}
+                              </span>
                             ) : null}
                             <span
                               className={eff === "done" ? "task-manage-eff task-manage-eff--done" : "task-manage-eff"}
@@ -503,7 +522,6 @@ export function TasksManageDialog({
           <div className="task-manage-permanent">
             <div className="task-manage-form task-manage-form--permanent">
               <input
-                ref={permanentTitleRef}
                 className="task-manage-input"
                 value={permanentForm.title}
                 onChange={(e) => setPermanentForm((prev) => ({ ...prev, title: e.target.value }))}
@@ -565,13 +583,25 @@ export function TasksManageDialog({
                 />
                 {t("tasksManage.activeLabel")}
               </label>
+              {fabricTasksPublic ? (
+                <label className="checkbox-line task-manage-inline-check">
+                  <input
+                    type="checkbox"
+                    checked={permanentForm.fabricPublished}
+                    onChange={(e) =>
+                      setPermanentForm((prev) => ({ ...prev, fabricPublished: e.target.checked }))
+                    }
+                  />
+                  {t("tasksManage.publishOnFabric")}
+                </label>
+              ) : null}
               <div className="task-manage-assignees">
                 <span className="task-manage-label-text">{t("tasksManage.assigneesLabel")}</span>
                 <div className="task-manage-form-actions task-manage-form-actions--compact">
                   <button
                     type="button"
                     className="btn btn-ghost"
-                    onClick={() => setPermanentForm((prev) => ({ ...prev, assignees: MEMBERS.map((m) => m.id) }))}
+                    onClick={() => setPermanentForm((prev) => ({ ...prev, assignees: members.map((m) => m.id) }))}
                   >
                     {t("tasksManage.assigneesSelectAll")}
                   </button>
@@ -584,7 +614,7 @@ export function TasksManageDialog({
                   </button>
                 </div>
                 <div className="task-manage-assignees-grid">
-                  {MEMBERS.map((mem) => (
+                  {members.map((mem) => (
                     <label key={mem.id} className="checkbox-line task-manage-inline-check">
                       <input
                         type="checkbox"
@@ -623,7 +653,7 @@ export function TasksManageDialog({
                 {permanentTasks.map((taskItem) => {
                   const assignees = taskItem.assignees?.length ? taskItem.assignees : [taskItem.assignee];
                   const names = assignees
-                    .map((id) => MEMBERS.find((m) => m.id === id)?.shortName ?? id)
+                    .map((id) => members.find((m) => m.id === id)?.shortName ?? id)
                     .join(", ");
                   const isEdit = editingPermanentId === taskItem.id && editingPermanent;
                   return (
@@ -687,8 +717,23 @@ export function TasksManageDialog({
                             />
                             {t("tasksManage.activeLabel")}
                           </label>
+                          {fabricTasksPublic ? (
+                            <label className="checkbox-line task-manage-inline-check">
+                              <input
+                                type="checkbox"
+                                checked={editingPermanent.fabricPublished}
+                                onChange={(e) =>
+                                  setEditingPermanent({
+                                    ...editingPermanent,
+                                    fabricPublished: e.target.checked,
+                                  })
+                                }
+                              />
+                              {t("tasksManage.publishOnFabric")}
+                            </label>
+                          ) : null}
                           <div className="task-manage-assignees-grid">
-                            {MEMBERS.map((mem) => (
+                            {members.map((mem) => (
                               <label key={mem.id} className="checkbox-line task-manage-inline-check">
                                 <input
                                   type="checkbox"
@@ -723,6 +768,11 @@ export function TasksManageDialog({
                             <div className="task-manage-meta">
                               <span>{t("tasksManage.assigneesLabel")}: {names}</span>
                               <span>· {t("tasksManage.whenLabel")}: {taskItem.plannedTime ?? slotShort(t, taskItem.slot)}</span>
+                            {fabricTasksPublic && taskItem.fabricPublished ? (
+                              <span className="badge badge-fabric" title={t("tasksManage.publishOnFabricHint")}>
+                                {t("tasksManage.fabricBadge")}
+                              </span>
+                            ) : null}
                             <label className="checkbox-line task-manage-inline-check">
                               <input
                                 type="checkbox"
@@ -734,7 +784,8 @@ export function TasksManageDialog({
                                     slot: taskItem.slot,
                                     plannedTime: taskItem.plannedTime,
                                     active: e.target.checked,
-                                  scheduleMode: taskItem.plannedTime ? "time" : "slot",
+                                    scheduleMode: taskItem.plannedTime ? "time" : "slot",
+                                    fabricPublished: Boolean(taskItem.fabricPublished),
                                   })
                                 }
                               />

@@ -1,10 +1,13 @@
-import { DEFAULT_PET_ASSIGNEE, FEED_WINDOW_MIN, PETS, routineForPet } from "../constants";
+'use strict';
+
+import { DEFAULT_MEMBERS, DEFAULT_PET_ASSIGNEE, FEED_WINDOW_MIN, PETS, routineForPet } from "../constants";
+import type { FabricActorId } from "../fabricIds";
 import type { MemberId, PetCareKind, TaskStatus, VirtualPetTask } from "../types";
 import { inWindow, minutesFromMidnight } from "./time";
 
 export function petTaskKey(
   dateKey: string,
-  petId: string,
+  petId: FabricActorId,
   kind: PetCareKind,
   plannedMinutes: number,
 ): string {
@@ -21,7 +24,7 @@ export function buildVirtualPetTasks(
   const out: VirtualPetTask[] = [];
 
   for (const pet of PETS) {
-    const assignee: MemberId = DEFAULT_PET_ASSIGNEE[pet.id] ?? "anya";
+    const assignee: MemberId = DEFAULT_PET_ASSIGNEE[pet.id] ?? DEFAULT_MEMBERS[0]!.id;
     for (const slot of routineForPet(pet)) {
       const key = petTaskKey(dateKey, pet.id, slot.kind, slot.minutes);
       const status = petCompletions[key] ?? "planned";
