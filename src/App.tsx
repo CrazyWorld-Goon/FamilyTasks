@@ -36,9 +36,24 @@ import { decodePeerViewTab, encodePeerViewTabId, isPeerViewTab } from "./network
 
 const ACTIVE_TAB_STORAGE_KEY = "familyTasks.activeTab";
 const NEW_TASK_FLASH_MS = 1800;
+const SHOP_RESET_HOUR = 4;
+const MISSED_TASK_HOLD_MS = 3000;
+const MISSED_TASK_COLLAPSE_MS = 360;
 
 function dateKey(d = new Date()): string {
-  return d.toISOString().slice(0, 10);
+  const base = new Date(d);
+  if (base.getHours() < SHOP_RESET_HOUR) {
+    base.setDate(base.getDate() - 1);
+  }
+  return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`;
+}
+
+function shoppingDayKey(d = new Date()): string {
+  const base = new Date(d);
+  if (base.getHours() < SHOP_RESET_HOUR) {
+    base.setDate(base.getDate() - 1);
+  }
+  return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`;
 }
 
 function isMemberId(tab: TabId): tab is MemberId {
@@ -50,7 +65,7 @@ function isHiddenSecretTab(tab: TabId): boolean {
 }
 
 type Row =
-  | { kind: "task"; task: Task }
+  | { kind: "task"; task: Task; collapseOut?: boolean }
   | { kind: "pet"; pet: VirtualPetTask }
   | { kind: "shop"; item: ShoppingItem };
 
@@ -154,7 +169,7 @@ export default function App() {
     markShoppingBought,
     addShopping,
     reopenShoppingItem,
-    removeShoppingItem,
+    rejectShoppingItem,
     removeBoughtHistoryByTitleKey,
     addTask,
     setTaskNotes,
@@ -219,9 +234,12 @@ export default function App() {
   const [removeConfirm, setRemoveConfirm] = useState<RemoveConfirmState | null>(null);
   const [requestAssignees, setRequestAssignees] = useState<RequestAssigneesState | null>(null);
   const [payoutDialog, setPayoutDialog] = useState<PayoutDialogState>(null);
+  const [heldMissedDoneTaskIds, setHeldMissedDoneTaskIds] = useState<Record<string, true>>({});
+  const [collapsingMissedDoneTaskIds, setCollapsingMissedDoneTaskIds] = useState<Record<string, true>>({});
   const knownTaskIdsRef = useRef<Set<string> | null>(null);
   const flashTimeoutsRef = useRef<number[]>([]);
   const btcTapCountRef = useRef(0);
+  const missedDoneTimersRef = useRef<Record<string, number[]>>({});
 
   useEffect(() => {
     const baseTitle = translate(MESSAGES[locale], "meta.title");
@@ -326,6 +344,10 @@ export default function App() {
       for (const timeout of flashTimeoutsRef.current) {
         window.clearTimeout(timeout);
       }
+      const timerGroups = Object.values(missedDoneTimersRef.current);
+      for (const timers of timerGroups) {
+        for (const timeout of timers) window.clearTimeout(timeout);
+      }
     };
   }, []);
 
@@ -375,7 +397,38 @@ export default function App() {
   };
 
   const onDoneTask = (task: Task) => {
+    const nowAtClick = new Date();
+    const missedBeforeDone = isTaskSlotMissedToday(task, nowAtClick, dateKey(nowAtClick));
     setTaskStatus(task.id, "done");
+    if (!missedBeforeDone) return;
+
+    const prevTimers = missedDoneTimersRef.current[task.id];
+    if (prevTimers) {
+      for (const timeout of prevTimers) window.clearTimeout(timeout);
+    }
+    setHeldMissedDoneTaskIds((prev) => ({ ...prev, [task.id]: true }));
+    setCollapsingMissedDoneTaskIds((prev) => {
+      const next = { ...prev };
+      delete next[task.id];
+      return next;
+    });
+    const collapseTimer = window.setTimeout(() => {
+      setCollapsingMissedDoneTaskIds((prev) => ({ ...prev, [task.id]: true }));
+    }, MISSED_TASK_HOLD_MS);
+    const removeTimer = window.setTimeout(() => {
+      setHeldMissedDoneTaskIds((prev) => {
+        const next = { ...prev };
+        delete next[task.id];
+        return next;
+      });
+      setCollapsingMissedDoneTaskIds((prev) => {
+        const next = { ...prev };
+        delete next[task.id];
+        return next;
+      });
+      delete missedDoneTimersRef.current[task.id];
+    }, MISSED_TASK_HOLD_MS + MISSED_TASK_COLLAPSE_MS);
+    missedDoneTimersRef.current[task.id] = [collapseTimer, removeTimer];
   };
 
   const onRequestUndoTask = (task: Task) => {
@@ -563,10 +616,13 @@ export default function App() {
   }
 
   const dk = dateKey(now);
+  const shoppingDk = shoppingDayKey(now);
   const phase = getDayPhase(now);
   const virtualPets = buildVirtualPetTasks(dk, now, state.petCompletions, (key) => t(key));
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const shoppingOrdered = sortShoppingForDisplay(state.shopping);
+  const shoppingOrdered = sortShoppingForDisplay(state.shopping).filter(
+    (item) => item.status === "open" || (item.status === "bought" && item.boughtAt === shoppingDk),
+  );
   const repurchase = getRepurchaseCandidates(state.shopping);
   const canAccessNetwork = hasOwnerAdminTokenForUser(ownerUserId);
   const bitcoinFeaturesEnabled = state.family?.bitcoinFeatures !== false;
@@ -585,7 +641,12 @@ export default function App() {
       (t) => t.active !== false && (t.assignees?.length ? t.assignees.includes(member) : t.assignee === member),
     );
     const pets = virtualPets.filter((v) => v.assignee === member);
-    const memberShops = state.shopping.filter((s) => s.assignee === member);
+    const memberShops = state.shopping.filter(
+      (s) =>
+        s.assignee === member &&
+        s.status !== "rejected" &&
+        (s.status === "open" || (s.status === "bought" && s.boughtAt === shoppingDk)),
+    );
 
     const nowRows: Row[] = [];
     const laterRows: Row[] = [];
@@ -593,6 +654,10 @@ export default function App() {
     for (const t of tasks) {
       const row: Row = { kind: "task", task: t };
       const eff = getEffectiveTaskStatus(t, dk);
+      if (eff === "done" && heldMissedDoneTaskIds[t.id]) {
+        nowRows.push({ kind: "task", task: t, collapseOut: Boolean(collapsingMissedDoneTaskIds[t.id]) });
+        continue;
+      }
       const inNowWindow =
         eff === "planned" ? taskRelevantNow(t, phase, dk, now) : taskRelevantWindow(t, phase, dk, now);
       if (eff === "planned" && inNowWindow) {
@@ -983,6 +1048,9 @@ export default function App() {
                         <span className="repurchase-meta" style={{ color: mem?.color }}>
                           {mem?.shortName}
                         </span>
+                        {c.status === "rejected" ? (
+                          <span className="repurchase-status repurchase-status--rejected">{t("shopTab.rejectedStatus")}</span>
+                        ) : null}
                       </div>
                       <div className="repurchase-actions">
                         <button
@@ -1175,8 +1243,8 @@ export default function App() {
                 className="btn btn-cancel-done"
                 onClick={() => {
                   if (removeConfirm.kind === "shop") {
-                    removeShoppingItem(removeConfirm.id);
-                    showToast(t("removeConfirm.toastShopRemoved"));
+                    rejectShoppingItem(removeConfirm.id);
+                    showToast(t("removeConfirm.toastShopRejected"));
                   } else {
                     removeBoughtHistoryByTitleKey(removeConfirm.key);
                     showToast(t("removeConfirm.toastRepurchaseRemoved", { title: removeConfirm.title }));
@@ -1325,6 +1393,17 @@ export default function App() {
             fabricPublished: data.fabricPublished,
           });
           showToast(t("toasts.taskAddedDaily"));
+        }}
+        onCreateRegular={(data) => {
+          const first = data.assignees[0];
+          if (!first) return;
+          addTask(data.title, first, data.slot, {
+            assignees: data.assignees,
+            plannedTime: data.plannedTime,
+            notes: data.notes,
+            fabricPublished: data.fabricPublished,
+          });
+          showToast(t("toasts.taskAdded"));
         }}
         onUpdatePermanent={(id, data) => {
           updateTask(id, {
@@ -1583,6 +1662,7 @@ function TaskItemRow({
   task,
   eff,
   slotMissed,
+  collapseOut = false,
   isFreshTask,
   viewerMember,
   fabricSharingEnabled,
@@ -1595,6 +1675,7 @@ function TaskItemRow({
   task: Task;
   eff: TaskStatus;
   slotMissed: boolean;
+  collapseOut?: boolean;
   isFreshTask: boolean;
   viewerMember?: MemberId;
   fabricSharingEnabled?: boolean;
@@ -1607,10 +1688,28 @@ function TaskItemRow({
   const { t } = useI18n();
   const [notesOpen, setNotesOpen] = useState(false);
   const [draft, setDraft] = useState(task.notes ?? "");
+  const notesInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     setDraft(task.notes ?? "");
   }, [task.id, task.notes]);
+
+  useEffect(() => {
+    if (!notesOpen) return;
+    const id = window.requestAnimationFrame(() => {
+      const el = notesInputRef.current;
+      if (!el) return;
+      el.focus();
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [notesOpen]);
+
+  const commitNotes = useCallback(() => {
+    onSetTaskNotes(task.id, draft);
+    setNotesOpen(false);
+  }, [draft, onSetTaskNotes, task.id]);
 
   const hasNotes = Boolean(task.notes?.trim());
   const slotShort = t(`slots.slotHintShort.${task.slot}`);
@@ -1626,6 +1725,7 @@ function TaskItemRow({
         "row--task",
         isFreshTask ? "row--task-fresh" : "",
         slotMissed ? "row--task-missed" : "",
+        collapseOut ? "row--task-collapse-out" : "",
         requestedForViewer ? "row--task-requested" : "",
       ]
         .filter(Boolean)
@@ -1635,6 +1735,11 @@ function TaskItemRow({
         <div className="row-title">{task.title}</div>
         <div className="row-meta">
           {task.plannedTime ? t("taskRow.metaTime", { time: task.plannedTime }) : t("taskRow.metaSlot", { slot: slotShort })}
+          {!notesOpen ? (
+            <button type="button" className="linkish task-note-toggle" onClick={() => setNotesOpen(true)}>
+              {hasNotes ? t("taskRow.editNotes") : t("taskRow.addNotes")}
+            </button>
+          ) : null}
           {task.recurrence === "daily" ? (
             <span className="badge badge-daily" title={t("statusLabels.dailyRepeatTitle")}>
               {t("tasksManage.dailyBadge")}
@@ -1656,31 +1761,32 @@ function TaskItemRow({
             <span>{t("taskRow.publishOnFabric")}</span>
           </label>
         ) : null}
-        {hasNotes ? <p className="row-note">{task.notes}</p> : null}
+        {hasNotes ? (
+          <p className="row-note" onClick={() => setNotesOpen(true)}>
+            {task.notes}
+          </p>
+        ) : null}
         {notesOpen ? (
           <div className="task-notes-edit">
             <textarea
+              ref={notesInputRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => {
+                commitNotes();
+              }}
               rows={2}
               placeholder={t("taskRow.notesPlaceholder")}
               aria-label={t("taskRow.notesAria")}
             />
             <div className="task-notes-edit-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => onSetTaskNotes(task.id, draft)}>
+              <button type="button" className="btn btn-ghost task-note-save-btn" onMouseDown={(e) => e.preventDefault()} onClick={commitNotes}>
                 <IconCheck size={16} />
                 {t("taskRow.saveNotes")}
               </button>
-              <button type="button" className="linkish" onClick={() => setNotesOpen(false)}>
-                {t("taskRow.close")}
-              </button>
             </div>
           </div>
-        ) : (
-          <button type="button" className="linkish task-note-toggle" onClick={() => setNotesOpen(true)}>
-            {hasNotes ? t("taskRow.editNotes") : t("taskRow.addNotes")}
-          </button>
-        )}
+        ) : null}
       </div>
       <div className="row-actions row-actions--task">
         {eff === "planned" ? (
@@ -1859,6 +1965,7 @@ function RowView({
         task={task}
         eff={eff}
         slotMissed={slotMissed}
+        collapseOut={Boolean(row.collapseOut)}
         isFreshTask={isFreshTask}
         viewerMember={viewerMember}
         fabricSharingEnabled={fabricSharingEnabled}

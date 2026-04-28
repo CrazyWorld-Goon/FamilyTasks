@@ -52,6 +52,12 @@ export function isTaskSlotMissedToday(task: Task, now: Date, todayKey: string): 
   if (effectiveSlot === "any" || effectiveSlot === "sleep") return false;
   if (getEffectiveTaskStatus(task, todayKey) !== "planned") return false;
 
+  // Daily tasks can have a deferred start day (stored in dueDate).
+  if (task.recurrence === "daily" && task.dueDate) {
+    const startCmp = compareDateKeys(todayKey, task.dueDate);
+    if (startCmp < 0) return false;
+  }
+
   const refDayKey = task.recurrence === "daily" ? todayKey : task.dueDate ?? todayKey;
   const dayCmp = compareDateKeys(todayKey, refDayKey);
   if (dayCmp > 0) return true;

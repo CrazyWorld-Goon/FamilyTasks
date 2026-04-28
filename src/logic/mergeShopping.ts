@@ -43,6 +43,10 @@ function pickMerged(li: ShoppingItem | undefined, si: ShoppingItem | undefined):
   if (li == null) return si!;
   if (si == null) return li;
 
+  if (li.status === "rejected" && si.status !== "rejected") return li;
+  if (si.status === "rejected" && li.status !== "rejected") return si;
+  if (li.status === "rejected" && si.status === "rejected") return li;
+
   if (li.status === "bought" && si.status === "open") return li;
   if (li.status === "open" && si.status === "bought") return si;
   if (li.status === "bought" && si.status === "bought") {

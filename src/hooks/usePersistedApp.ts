@@ -4,6 +4,7 @@ import { fetchPersistedState, putPersistedState } from "../api/persistClient";
 import type { AppI18nError } from "../i18n/appError";
 import { mergeShoppingWithServer, shoppingDataEqual } from "../logic/mergeShopping";
 import { normalizeShoppingTitle } from "../logic/shoppingList";
+import { isTaskSlotMissedToday } from "../logic/slotMissed";
 import { createSeedState } from "../seed";
 import type { PersistedState } from "../storage";
 import type { FamilyMember, MemberId, PaymentProposal, ShoppingItem, Task, TaskStatus } from "../types";
@@ -11,7 +12,49 @@ import { newFabricEntityIdHex, isFabricActorId } from "../fabricIds";
 import { logFabricPaymentProposal } from "../fabricPaymentProposal";
 
 function todayKey(d = new Date()): string {
-  return d.toISOString().slice(0, 10);
+  const base = new Date(d);
+  if (base.getHours() < SHOP_RESET_HOUR) {
+    base.setDate(base.getDate() - 1);
+  }
+  return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`;
+}
+
+function shouldMoveTaskToNextDay(slot: Task["slot"], plannedTime: string | undefined, now: Date): boolean {
+  const logicalToday = todayKey(now);
+  if (plannedTime) {
+    const probe: Task = {
+      id: "__probe__",
+      title: "__probe__",
+      assignee: "__probe__" as MemberId,
+      status: "planned",
+      slot: "any",
+      plannedTime,
+      dueDate: logicalToday,
+    };
+    return isTaskSlotMissedToday(probe, now, logicalToday);
+  }
+  if (slot === "night" || slot === "sleep" || slot === "any") {
+    return true;
+  }
+  const probe: Task = {
+    id: "__probe__",
+    title: "__probe__",
+    assignee: "__probe__" as MemberId,
+    status: "planned",
+    slot,
+    dueDate: logicalToday,
+  };
+  return isTaskSlotMissedToday(probe, now, logicalToday);
+}
+
+const SHOP_RESET_HOUR = 4;
+
+function shoppingDayKey(d = new Date()): string {
+  const base = new Date(d);
+  if (base.getHours() < SHOP_RESET_HOUR) {
+    base.setDate(base.getDate() - 1);
+  }
+  return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`;
 }
 
 const SAVE_DEBOUNCE_MS = 400;
@@ -190,8 +233,9 @@ export function usePersistedApp() {
         const task = s.tasks.find((t) => t.id === taskId);
         const sid = task?.shoppingItemId;
         if (status === "done" && sid) {
+          const shoppingDay = shoppingDayKey();
           shopping = s.shopping.map((i) =>
-            i.id === sid ? { ...i, status: "bought" as const, boughtAt: today } : i,
+            i.id === sid ? { ...i, status: "bought" as const, boughtAt: shoppingDay } : i,
           );
         }
         return { ...s, tasks, shopping };
@@ -201,7 +245,7 @@ export function usePersistedApp() {
   );
 
   const markShoppingBought = useCallback((shoppingId: string) => {
-    const t = todayKey();
+    const t = shoppingDayKey();
     update((s) => ({
       ...s,
       shopping: s.shopping.map((i) => (i.id === shoppingId ? { ...i, status: "bought" as const, boughtAt: t } : i)),
@@ -249,10 +293,22 @@ export function usePersistedApp() {
     });
   }, [update]);
 
+  const rejectShoppingItem = useCallback((id: string) => {
+    update((s) => {
+      const tasks = s.tasks.map((t) =>
+        t.shoppingItemId === id ? { ...t, shoppingItemId: undefined } : t,
+      );
+      const shopping = s.shopping.map((i) =>
+        i.id === id ? { ...i, status: "rejected" as const, boughtAt: undefined } : i,
+      );
+      return { ...s, tasks, shopping };
+    });
+  }, [update]);
+
   const removeBoughtHistoryByTitleKey = useCallback((key: string) => {
     update((s) => {
       const ids = s.shopping
-        .filter((i) => i.status === "bought" && normalizeShoppingTitle(i.title) === key)
+        .filter((i) => i.status !== "open" && normalizeShoppingTitle(i.title) === key)
         .map((i) => i.id);
       if (ids.length === 0) return s;
       const remove = new Set(ids);
@@ -268,11 +324,24 @@ export function usePersistedApp() {
       title: string,
       assignee: MemberId,
       slot: Task["slot"],
-      opts?: { recurrence?: "daily"; assignees?: MemberId[]; active?: boolean; plannedTime?: string; fabricPublished?: boolean },
+      opts?: {
+        recurrence?: "daily";
+        assignees?: MemberId[];
+        active?: boolean;
+        plannedTime?: string;
+        fabricPublished?: boolean;
+        notes?: string;
+      },
     ) => {
       const id = newFabricEntityIdHex();
       const normalizedAssignees = opts?.assignees?.length ? Array.from(new Set(opts.assignees)) : undefined;
       const effectiveAssignee = normalizedAssignees?.[0] ?? assignee;
+      const notes = opts?.notes?.trim();
+      const now = new Date();
+      const shouldShiftDueDate = shouldMoveTaskToNextDay(slot, opts?.plannedTime, now);
+      const dueDate = shouldShiftDueDate
+        ? todayKey(new Date(now.getTime() + 24 * 60 * 60 * 1000))
+        : todayKey(now);
       const task: Task = {
         id,
         title: title.trim(),
@@ -282,8 +351,9 @@ export function usePersistedApp() {
         slot,
         active: opts?.active ?? true,
         plannedTime: opts?.plannedTime,
-        dueDate: todayKey(),
+        dueDate,
         recurrence: opts?.recurrence,
+        ...(notes ? { notes } : {}),
         ...(opts?.fabricPublished ? { fabricPublished: true as const } : {}),
       };
       update((s) => ({ ...s, tasks: [task, ...s.tasks] }));
@@ -634,6 +704,7 @@ export function usePersistedApp() {
     addShopping,
     patchShoppingItem,
     reopenShoppingItem,
+    rejectShoppingItem,
     removeShoppingItem,
     removeBoughtHistoryByTitleKey,
     addTask,

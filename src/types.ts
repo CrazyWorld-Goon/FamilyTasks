@@ -46,7 +46,7 @@ export interface Task {
   slot: TimeSlot;
   /** Опциональное точное время выполнения (HH:MM). */
   plannedTime?: string;
-  /** ISO date YYYY-MM-DD, опционально */
+  /** ISO date YYYY-MM-DD, опционально. Для daily может хранить дату старта шаблона. */
   dueDate?: string;
   /** Если задано — снова в плане после смены дня, пока не отмечено сегодня. */
   recurrence?: "daily";
@@ -67,7 +67,7 @@ export interface Task {
   fabricPublished?: boolean;
 }
 
-export type ShoppingStatus = "open" | "bought";
+export type ShoppingStatus = "open" | "bought" | "rejected";
 
 export type TabId = "all" | "family" | "network" | "shop" | MemberId | PeerViewTabId;
 

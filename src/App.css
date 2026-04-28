@@ -488,7 +488,7 @@ body {
   width: 100%;
   min-width: 0;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   padding: 0.5rem 0.55rem;
@@ -547,6 +547,14 @@ body {
   margin-top: 0;
 }
 
+.task-manage-form-actions--split {
+  width: 100%;
+}
+
+.task-manage-form-actions--split .btn-primary {
+  margin-left: auto;
+}
+
 .task-manage-status {
   max-width: 10rem;
 }
@@ -597,6 +605,23 @@ body {
   gap: 0.45rem;
 }
 
+.task-manage-regular {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.task-manage-add-cta {
+  width: 100%;
+  justify-content: center;
+}
+
+.task-manage-form--regular-create {
+  border: 1px solid #eadccf;
+  border-radius: var(--radius-sm);
+  background: #fdfaf5;
+  padding: 0.65rem;
+}
+
 .task-manage-assignees {
   display: grid;
   gap: 0.35rem;
@@ -612,6 +637,12 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem 0.7rem;
+}
+
+.task-manage-member-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 .task-manage-footer {
@@ -1079,6 +1110,35 @@ body {
   box-shadow: 0 1px 0 #f0e6da;
 }
 
+.row--task-collapse-out {
+  overflow: hidden;
+  pointer-events: none;
+  transform-origin: top center;
+  animation: task-row-collapse-pop 360ms cubic-bezier(0.2, 0.9, 0.25, 1) forwards;
+}
+
+@keyframes task-row-collapse-pop {
+  0% {
+    opacity: 1;
+    max-height: 16rem;
+    transform: scaleY(1);
+  }
+  38% {
+    opacity: 1;
+    transform: scaleY(1.03);
+  }
+  100% {
+    opacity: 0;
+    max-height: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+    transform: scaleY(0.92);
+  }
+}
+
 /* Текст задачи/питомца — может сжиматься; иначе выталкивает кнопки за экран */
 .row > :not(.row-actions) {
   flex: 1 1 10rem;
@@ -1088,7 +1148,6 @@ body {
 
 .row:last-child {
   border-bottom: none;
-  padding-bottom: 0;
 }
 
 .card-later .row:first-of-type {
@@ -1148,7 +1207,7 @@ body {
 }
 
 .row-note {
-  margin: 0.35rem 0 0;
+  margin: 0.2rem 0 0;
   font-size: 0.82rem;
   color: var(--ink);
   line-height: 1.45;
@@ -1159,10 +1218,12 @@ body {
   overflow-wrap: anywhere;
 }
 
+.row--task > :not(.row-actions) {
+  padding-bottom: 0.3rem;
+}
+
 .task-note-toggle {
-  margin-top: 0.4rem;
-  display: inline-block;
-  font-size: 0.8rem;
+  margin-left: 0.35rem;
 }
 
 .task-notes-edit {
@@ -1176,7 +1237,7 @@ body {
   width: 100%;
   min-width: 0;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   padding: 0.5rem 0.55rem;
@@ -1191,6 +1252,11 @@ body {
   align-items: center;
   gap: 0.5rem;
   margin-top: 0.35rem;
+}
+
+.task-note-save-btn {
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
 }
 
 .checkbox-line {
@@ -1746,6 +1812,24 @@ body {
 .repurchase-meta {
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.repurchase-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.45rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.repurchase-status--rejected {
+  background: #f8d9d8;
+  border: 1px solid #d5a1a0;
+  color: #8b2f2c;
 }
 
 .repurchase-actions {

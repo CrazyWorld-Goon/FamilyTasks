@@ -67,9 +67,17 @@ export function aggregateForAll(
   memberIds: MemberId[],
   now: Date = new Date(),
 ): { member: MemberId; relevant: number; planned: number }[] {
+  const TASK_RESET_HOUR = 4;
+  const taskDayKey = (d: Date): string => {
+    const base = new Date(d);
+    if (base.getHours() < TASK_RESET_HOUR) {
+      base.setDate(base.getDate() - 1);
+    }
+    return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`;
+  };
   const phase = getDayPhase(now);
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const dkey = now.toISOString().slice(0, 10);
+  const dkey = taskDayKey(now);
   return memberIds.map((member) => {
     const relTasks = tasks.filter((t) => t.assignee === member && taskRelevantNow(t, phase, dkey, now));
     const relPets = virtualPets.filter((v) => v.assignee === member && petTaskRelevantNow(v, phase, nowMin));

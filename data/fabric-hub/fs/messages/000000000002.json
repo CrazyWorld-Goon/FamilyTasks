@@ -1,5 +1,5 @@
 {
-  "id": "0ca487494b5ce3ebe465ad5230406493ef73d603e78b9d74bc1beaf3f991796e",
+  "id": "e04b4e00d2a32acee0041ae4a9b1874ab2ee6245f855ac3dabd452cb70d2e538",
   "seq": 2,
   "type": "BitcoinBlock",
   "payload": {
@@ -11,7 +11,7 @@
     "source": "p2p-gossip",
     "p2pOrigin": "hub.fabric.pub:7777"
   },
-  "created": "2026-04-28T21:33:40.941Z",
-  "chainBlock": "4ae3524fbc820ea47ab1e116d754a9956c96dfd343e7575baa53a6b4a3a3f200",
-  "chainTip": "4ae3524fbc820ea47ab1e116d754a9956c96dfd343e7575baa53a6b4a3a3f200"
+  "created": "2026-04-28T22:29:49.846Z",
+  "chainBlock": "05bb51a101253cf68e368ea738f48467aeb650abe7026faa9c61377fcddd1d74",
+  "chainTip": "05bb51a101253cf68e368ea738f48467aeb650abe7026faa9c61377fcddd1d74"
 }

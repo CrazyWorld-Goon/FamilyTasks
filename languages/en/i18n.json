@@ -278,6 +278,7 @@
     "dontSuggestTitle": "Don't suggest this purchase again",
     "dontSuggestAria": "Don't buy",
     "backToList": "Back to list",
+    "rejectedStatus": "Declined",
     "addHeading": "Add something to buy",
     "addHint": "One list for the family — whoever buys sees it under \"Now\" on their tab.",
     "placeholderNewItem": "e.g. milk, cat food…",
@@ -312,11 +313,11 @@
   "removeConfirm": {
     "aria": "Deletion confirmation",
     "title": "Delete for sure?",
-    "shopBody": "«{{title}}» will be removed from the shopping list.",
+    "shopBody": "«{{title}}» will move to \"Buy again\" with status \"Declined\".",
     "repurchaseBody": "«{{title}}» will no longer appear under \"Buy again\".",
     "confirmRemove": "Delete",
     "keep": "Keep",
-    "toastShopRemoved": "Item removed from the list.",
+    "toastShopRejected": "Item moved to \"Buy again\" as \"Declined\".",
     "toastRepurchaseRemoved": "«{{title}}» removed from suggestions and history."
   },
   "toasts": {
@@ -335,6 +336,10 @@
     "hint": "Editing and deleting — no shopping list or pets, only your errands.",
     "modeRegular": "One-time tasks",
     "modePermanent": "Permanent tasks",
+    "addRegularCta": "Add one-time task",
+    "addRegular": "Add one-time",
+    "regularTitlePlaceholder": "One-time task title",
+    "regularTitleAria": "One-time task title",
     "empty": "No tasks yet — add them from a family member's tab.",
     "permanentEmpty": "No permanent tasks yet.",
     "permanentTitlePlaceholder": "Permanent task title",
