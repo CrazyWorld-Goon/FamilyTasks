@@ -10,7 +10,8 @@ export function getDayPhase(now: Date = new Date()): DayPhase {
   if (h >= 5 && h < 12) return "morning";
   if (h >= 12 && h < 17) return "day";
   if (h >= 17 && h < 22) return "evening";
-  return "night";
+  if (h >= 22 || h < 1) return "night";
+  return "sleep";
 }
 
 export function phaseLabel(p: DayPhase): string {
@@ -22,7 +23,9 @@ export function phaseLabel(p: DayPhase): string {
     case "evening":
       return "Вечер";
     case "night":
-      return "Ночь";
+      return "Почти ночь";
+    case "sleep":
+      return "Время сна";
   }
 }
 
@@ -42,7 +45,8 @@ export function inWindow(nowMin: number, plannedMin: number, windowMin: number):
 
 export function phaseTimeRange(phase: DayPhase): string {
   const { start, end } = DAY_PHASE_HOURS[phase];
-  if (phase === "night") return "22:00 — 05:00";
+  if (phase === "night") return "22:00 — 01:00";
+  if (phase === "sleep") return "01:00 — 05:00";
   const e = end >= 24 ? end - 24 : end;
   return `${String(start).padStart(2, "0")}:00 — ${String(e).padStart(2, "0")}:00`;
 }

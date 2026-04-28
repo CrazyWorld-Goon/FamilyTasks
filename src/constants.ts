@@ -1,10 +1,8 @@
 import type { DayPhase, FamilyMember, MemberId, Pet, PetRoutineSlot } from "./types";
 
-export const STORAGE_KEY = "dom-i-zadachi-state-v1";
-
 export const MEMBERS: FamilyMember[] = [
   { id: "anya", shortName: "Аня", fullName: "Аня", role: "Мама", color: "#c56c86" },
-  { id: "seryozha", shortName: "Серёжа", fullName: "Серёжа", role: "Муж", color: "#6b8f71" },
+  { id: "seryozha", shortName: "Серёжа", fullName: "Серёжа", role: "Мужик", color: "#6b8f71" },
   { id: "tamara", shortName: "Тамара", fullName: "Тамара", role: "Дочь", color: "#7b9eb8" },
   { id: "luka", shortName: "Лука", fullName: "Лука", role: "Сын", color: "#d4a574" },
 ];
@@ -17,27 +15,28 @@ export const PETS: Pet[] = [
   { id: "potap", name: "Потап", species: "dog" },
 ];
 
-/** Утро / день / вечер / ночь — границы в часах [start, end) по локальному времени */
+/** Утро / день / вечер / почти ночь / время сна — границы в часах [start, end) по локальному времени */
 export const DAY_PHASE_HOURS: Record<DayPhase, { start: number; end: number }> = {
   morning: { start: 5, end: 12 },
   day: { start: 12, end: 17 },
   evening: { start: 17, end: 22 },
-  night: { start: 22, end: 29 }, // 29 = 5 next day, обрабатывается в логике
+  night: { start: 22, end: 1 },
+  sleep: { start: 1, end: 5 },
 };
 
 /** Кто по умолчанию кормит/выгуливает (можно потом вынести в настройки) */
 export const DEFAULT_PET_ASSIGNEE: Record<string, MemberId> = {
-  boris: "anya",
+  boris: "tamara",
   abrikos: "tamara",
-  lisa: "luka",
-  farida: "seryozha",
-  potap: "anya",
+  lisa: "tamara",
+  farida: "tamara",
+  potap: "tamara",
 };
 
 function feedSlots(morning: number, evening: number): PetRoutineSlot[] {
   return [
-    { kind: "feed", label: "Корм (утро)", minutes: morning * 60 + 30 },
-    { kind: "feed", label: "Корм (вечер)", minutes: evening * 60 + 30 },
+    { kind: "feed", label: "Покормить (утро)", minutes: morning * 60 + 30 },
+    { kind: "feed", label: "Покормить (вечер)", minutes: evening * 60 + 30 },
   ];
 }
 
@@ -56,3 +55,12 @@ export function routineForPet(pet: Pet): PetRoutineSlot[] {
 }
 
 export const FEED_WINDOW_MIN = 60;
+
+/**
+ * Подписи в «пилюле» ожидания; поменяйте под выбранные формулировки.
+ * Варианты — в ответе/брендбуке, по смыслу: покупка vs дела/поручения.
+ */
+export const PENDING_SHOPPING_LABEL = "Ожидает покупки";
+export const PENDING_ACTIVITY_LABEL = "Ожидает выполнения";
+/** Задача не закрыта до конца своего слота, показана в следующем окне */
+export const MISSED_SLOT_LABEL = "не сделано";
