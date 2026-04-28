@@ -14,21 +14,6 @@ export function getDayPhase(now: Date = new Date()): DayPhase {
   return "sleep";
 }
 
-export function phaseLabel(p: DayPhase): string {
-  switch (p) {
-    case "morning":
-      return "Утро";
-    case "day":
-      return "День";
-    case "evening":
-      return "Вечер";
-    case "night":
-      return "Почти ночь";
-    case "sleep":
-      return "Время сна";
-  }
-}
-
 export function slotMatchesPhase(slot: TimeSlot, phase: DayPhase): boolean {
   if (slot === "any") return true;
   return slot === phase;

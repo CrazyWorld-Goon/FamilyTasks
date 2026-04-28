@@ -1,0 +1,227 @@
+{
+  "meta": {
+    "title": "Home & tasks",
+    "description": "Family planning — tasks, pets, and shopping"
+  },
+  "loading": "Loading home…",
+  "errors": {
+    "persist": {
+      "invalidData": "Invalid data format",
+      "network": "Network or server unavailable",
+      "saveFailed": "Could not save",
+      "http": "HTTP {{status}}"
+    },
+    "unknown": "Unknown error"
+  },
+  "sync": {
+    "noServerBold": "Cannot reach the server",
+    "hint": "The API must be running (see README). Command:",
+    "retry": "Retry"
+  },
+  "saveBanner": "Could not save to server:",
+  "dismiss": "Dismiss",
+  "brand": {
+    "title": "Home & tasks",
+    "tagline": "Family · pets · shopping"
+  },
+  "memberRoles": {
+    "anya": "Mom",
+    "seryozha": "Dad",
+    "tamara": "Daughter",
+    "luka": "Son"
+  },
+  "tabs": {
+    "ariaSections": "Sections",
+    "all": "All",
+    "shop": "Buy",
+    "tasks": "Tasks",
+    "tasksTitle": "Tasks list: edit and delete"
+  },
+  "overview": {
+    "ariaFamily": "Family overview",
+    "currentHeading": "Now: things that matter",
+    "currentHintBefore": "Assignments and pets by time of day:",
+    "currentHintMiddle": "— shopping list on the tab",
+    "memberAllTasks": "All tasks",
+    "memberNowEmpty": "Nothing urgent right now."
+  },
+  "personView": {
+    "personalHint": "Personal view · time of day:",
+    "nowHeading": "Relevant now",
+    "nowHint": "Feeding is stricter (±1 h to plan), walks are softer. Shopping is on the \"Buy\" tab.",
+    "nowEmpty": "Quiet now — check \"Later\" or add a task.",
+    "laterHeading": "Later",
+    "laterHint": "Scheduled outside this part of the day. After \"done\", the row stays put; only status changes.",
+    "laterEmpty": "No deferred tasks or pet care — nice day.",
+    "quickTaskHeading": "Quick task",
+    "quickTaskPlaceholder": "What to do?",
+    "quickTaskSubmit": "Add for myself",
+    "dailyCheckbox": "Every day (back on the plan after the day rolls over)"
+  },
+  "shopTab": {
+    "aria": "Shopping list",
+    "headingAll": "Everything on the list",
+    "hintAfterBuy": "After \"bought\", the row stays put; only status changes. Remove what you don't need (trash icon).",
+    "empty": "Nothing yet — add an item in the form below.",
+    "buyAgainHeading": "Buy again",
+    "buyAgainHint": "Bring something bought earlier back into the open list (there's no open row with that name now).",
+    "buyAgainAria": "Repeat purchase",
+    "dontSuggestTitle": "Don't suggest this purchase again",
+    "dontSuggestAria": "Don't buy",
+    "backToList": "Back to list",
+    "addHeading": "Add something to buy",
+    "addHint": "One list for the family — whoever buys sees it under \"Now\" on their tab.",
+    "placeholderNewItem": "e.g. milk, cat food…",
+    "ariaNewItem": "New shopping item",
+    "ariaAssigneeToTasks": "Assignee for tasks",
+    "willBuyPrefix": "Buys:",
+    "addButton": "Add to list"
+  },
+  "badTab": {
+    "message": "Invalid tab. Returning to \"All\"…",
+    "openAll": "Open \"All\""
+  },
+  "footer": {
+    "serverBadgeTitle": "Overall app server status",
+    "serverBadgePrefix": "Server ·"
+  },
+  "doneConfirm": {
+    "aria": "Undo confirmation",
+    "title": "Undo?",
+    "undoTask": "Remove completion from task",
+    "undoPet": "Put pet care back on the plan",
+    "undoShop": "Remove completion from purchase",
+    "quotedSuffix": "«{{title}}».",
+    "confirmUndo": "Undo",
+    "keepDone": "Keep done",
+    "toastTask": "Completion cleared — task is active again.",
+    "toastPet": "Completion cleared — pet task is planned again.",
+    "toastShop": "Completion cleared — purchase is back on the list."
+  },
+  "removeConfirm": {
+    "aria": "Deletion confirmation",
+    "title": "Delete for sure?",
+    "shopBody": "«{{title}}» will be removed from the shopping list.",
+    "repurchaseBody": "«{{title}}» will no longer appear under \"Buy again\".",
+    "confirmRemove": "Delete",
+    "keep": "Keep",
+    "toastShopRemoved": "Item removed from the list.",
+    "toastRepurchaseRemoved": "«{{title}}» removed from suggestions and history."
+  },
+  "toasts": {
+    "walkSkipped": "OK — one walk slot may count as skipped for the day. All good.",
+    "shopAdded": "Item added to the shared list.",
+    "taskAddedDaily": "Daily task added.",
+    "taskAdded": "Task added.",
+    "boughtHome": "«{{title}}» — at home.",
+    "repurchaseOpen": "«{{title}}» is waiting to be bought again.",
+    "taskSaved": "Task saved.",
+    "taskDeleted": "Task deleted."
+  },
+  "tasksManage": {
+    "title": "Family tasks",
+    "closeAria": "Close",
+    "hint": "Editing and deleting — no shopping list or pets, only your errands.",
+    "empty": "No tasks yet — add them from a family member's tab.",
+    "deleteConfirm": "Delete task «{{title}}»? This cannot be undone.",
+    "titleLabelAria": "Title",
+    "assigneeLabel": "Assignee",
+    "slotLabel": "Slot",
+    "notesLabel": "Notes",
+    "dailyCheckbox": "Every day",
+    "statusLabel": "Status",
+    "statusPlanned": "Planned",
+    "statusDone": "Done",
+    "statusSkipped": "Skipped",
+    "statusDeferred": "Deferred",
+    "save": "Save",
+    "cancel": "Cancel",
+    "dailyBadge": "daily",
+    "metaEffDoneDaily": "done today",
+    "metaEffDone": "done",
+    "metaEffPlanned": "ready",
+    "metaEffTitle": "Considering \"today\"",
+    "editTitle": "Edit",
+    "editAria": "Edit",
+    "deleteTitle": "Delete",
+    "deleteAria": "Delete",
+    "hintFooter": "To create a task, leave this panel and open a family tab — \"Quick task\" block.",
+    "doneButton": "Done"
+  },
+  "slots": {
+    "morning": "Morning",
+    "day": "Day",
+    "evening": "Evening",
+    "night": "Late night",
+    "any": "Anytime",
+    "slotHint": "Slot:",
+    "slotHintShort": {
+      "morning": "morning",
+      "day": "day",
+      "evening": "evening",
+      "night": "late night",
+      "any": "anytime"
+    }
+  },
+  "statusLabels": {
+    "pendingShopping": "Awaiting purchase",
+    "pendingActivity": "Awaiting completion",
+    "missedSlot": "not done",
+    "statusGeneric": "Status",
+    "slotMissedTitle": "Slot passed; task not closed",
+    "feedWindow": "within ±1 h window",
+    "walkSoft": "soft schedule",
+    "dailyRepeatTitle": "Repeats every day"
+  },
+  "phase": {
+    "morning": "Morning",
+    "day": "Day",
+    "evening": "Evening",
+    "night": "Late night",
+    "sleep": "Sleep time"
+  },
+  "taskRow": {
+    "metaSlot": "Task · slot: {{slot}}",
+    "notesPlaceholder": "Details: what to bring, where, for how long…",
+    "notesAria": "Task notes",
+    "saveNotes": "Save",
+    "close": "Close",
+    "editNotes": "Edit details",
+    "addNotes": "Add details",
+    "done": "Done",
+    "doneToday": "Done today",
+    "undoDoneAria": "Marked done today. Click to undo.",
+    "doneAria": "Done. Click to undo confirmation."
+  },
+  "shopRow": {
+    "purchaseMeta": "Purchase ·",
+    "buysStrong": "buys:",
+    "familyFallback": "family",
+    "boughtAria": "Marked bought. Click to undo confirmation.",
+    "pendingBuyTitle": "Awaiting purchase",
+    "removeTitle": "Remove from list",
+    "removeAria": "Remove from list",
+    "boughtButton": "bought",
+    "boughtStatus": "Bought"
+  },
+  "petRow": {
+    "planPrefix": "Plan:",
+    "petDone": "Done",
+    "walkSkipTitle": "Skip without stress",
+    "skipWalk": "Skip",
+    "skipAria": "Skip marked. Click to undo confirmation.",
+    "walkDoneAria": "Done. Click to undo confirmation."
+  },
+  "petRoutine": {
+    "feedMorning": "Feed (morning)",
+    "feedEvening": "Feed (evening)",
+    "walkMorning": "Walk (morning)",
+    "walk1800": "Walk (18:00)",
+    "walkBeforeSleep": "Walk (before bed)"
+  },
+  "lang": {
+    "label": "Language",
+    "en": "English",
+    "ru": "Русский"
+  }
+}
