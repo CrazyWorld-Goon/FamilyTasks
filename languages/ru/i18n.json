@@ -101,7 +101,17 @@
     "addPeerPlaceholder": "127.0.0.1:7777",
     "addPeerSubmit": "Добавить пир",
     "addPeerOk": "Запрос на добавление пира принят.",
-    "addPeerError": "Не удалось добавить пир — проверьте адрес и лог Hub."
+    "addPeerError": "Не удалось добавить пир — проверьте адрес и лог Hub.",
+    "peerRowAria": "Пир {{id}}, адрес {{address}} — открыть сведения о пире",
+    "peerDetailAria": "Сведения о пире",
+    "peerDetailHeading": "Сведения о пире",
+    "peerDetailScore": "Оценка",
+    "peerDetailMetadata": "Метаданные Hub",
+    "peerDetailMetadataEmpty": "Для этого пира метаданные от Hub не пришли.",
+    "peerSelectHint": "Щёлкните по строке, чтобы открыть отдельную страницу со всеми полями и метаданными.",
+    "peerViewBack": "← К списку пиров",
+    "peerViewStale": "Этого пира больше нет в списке Hub (отключился или удалён). Обновите список или вернитесь назад.",
+    "peerViewInvalid": "Ссылка на пир недействительна — вернитесь к списку."
   },
   "overview": {
     "ariaFamily": "Обзор семьи",

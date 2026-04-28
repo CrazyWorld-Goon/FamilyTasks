@@ -1,4 +1,5 @@
 import type { FabricActorId } from "./fabricIds";
+import type { PeerViewTabId } from "./networkPeerTab";
 
 /** Fabric {@link Actor#id} — family members, task/shopping assignees. */
 export type MemberId = FabricActorId;
@@ -61,7 +62,7 @@ export interface Task {
 
 export type ShoppingStatus = "open" | "bought";
 
-export type TabId = "all" | "network" | "shop" | MemberId;
+export type TabId = "all" | "network" | "shop" | MemberId | PeerViewTabId;
 
 export interface ShoppingItem {
   id: FabricActorId;

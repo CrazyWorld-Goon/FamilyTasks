@@ -1,6 +1,6 @@
 'use strict';
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useI18n } from "../i18n/I18nProvider";
 import {
   hubAddPeer,
@@ -57,11 +57,18 @@ export type FabricNetworkProps = {
   showDebug?: boolean;
   /** Poll Hub JSON-RPC for known peers (requires same-origin or dev proxy to `/services/rpc`). */
   showPeers?: boolean;
+  /** Opens the dedicated peer details view (Network tab only). */
+  onOpenPeer?: (peer: HubNetworkPeerRow, index: number) => void;
 };
 
 const PEER_POLL_MS = 8000;
 
-export default function FabricNetwork({ hubAddress, showDebug = true, showPeers = true }: FabricNetworkProps) {
+export default function FabricNetwork({
+  hubAddress,
+  showDebug = true,
+  showPeers = true,
+  onOpenPeer,
+}: FabricNetworkProps) {
   const { t } = useI18n();
   const wsOrigin = useMemo(() => parseHubWsOrigin(hubAddress?.trim()), [hubAddress]);
   const [phase, setPhase] = useState<"idle" | "connecting" | "open" | "closed" | "error">("idle");
@@ -140,6 +147,23 @@ export default function FabricNetwork({ hubAddress, showDebug = true, showPeers 
 
   const label = hubAddress?.trim() || window.location.host;
 
+  const onPeerRowActivate = useCallback(
+    (index: number, peer: HubNetworkPeerRow) => {
+      onOpenPeer?.(peer, index);
+    },
+    [onOpenPeer],
+  );
+
+  const onPeerRowKeyDown = useCallback(
+    (e: KeyboardEvent, index: number, peer: HubNetworkPeerRow) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onPeerRowActivate(index, peer);
+      }
+    },
+    [onPeerRowActivate],
+  );
+
   return (
     <div className="fabric-network-panel">
       {showDebug ? (
@@ -208,8 +232,18 @@ export default function FabricNetwork({ hubAddress, showDebug = true, showPeers 
                     const addr = typeof p.address === "string" ? p.address : "—";
                     const connected = isHubPeerLikelyConnected(p);
                     const rawStatus = String(p.status || "").trim() || "—";
+                    const interactive = Boolean(onOpenPeer);
                     return (
-                      <tr key={`${pid}-${addr}-${i}`}>
+                      <tr
+                        key={`${pid}-${addr}-${i}`}
+                        className={`fabric-peer-row${interactive ? " fabric-peer-row--interactive" : ""}`}
+                        tabIndex={interactive ? 0 : undefined}
+                        aria-label={t("network.peerRowAria", { id: pid, address: addr })}
+                        onClick={interactive ? () => onPeerRowActivate(i, p) : undefined}
+                        onKeyDown={
+                          interactive ? (e) => onPeerRowKeyDown(e, i, p) : undefined
+                        }
+                      >
                         <td className="fabric-peer-cell fabric-peer-cell-id">
                           <code title={pid}>{pid.length > 20 ? `${pid.slice(0, 10)}…${pid.slice(-6)}` : pid}</code>
                         </td>
@@ -234,6 +268,10 @@ export default function FabricNetwork({ hubAddress, showDebug = true, showPeers 
                 </tbody>
               </table>
             </div>
+          )}
+
+          {peerPollError || peers.length === 0 || !onOpenPeer ? null : (
+            <p className="section-hint fabric-peer-select-hint">{t("network.peerSelectHint")}</p>
           )}
 
           <button type="button" className="btn btn-secondary fabric-network-refresh-peers" onClick={() => void refreshPeers()}>

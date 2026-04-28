@@ -2,12 +2,14 @@ digraph Meta {
   "ChairmanPoW" -> {
     "Codywastaken"
     "CrazyWorld"
+    "xpln777"
   } [label=" teaches"]
 
   subgraph cluster_mentees {
     label = "Mentees";
     "Codywastaken"
     "CrazyWorld"
+    "xpln777"
   }
 
   subgraph cluster_projects {
@@ -16,12 +18,14 @@ digraph Meta {
     "@fabric/http"
     "@fabric/hub"
     "FamilyTasks"
+    "Security Audit"
   }
 
   "CrazyWorld" -> "FamilyTasks" [label=" owns"]
   "ChairmanPoW" -> "@fabric/core" [label=" owns"]
   "ChairmanPoW" -> "@fabric/http" [label=" owns"]
   "ChairmanPoW" -> "@fabric/hub" [label=" owns"]
+  "xpln777" -> "Security Audit" [label=" owns"]
 
   "@fabric/hub" -> "@fabric/http" [label=" depends on"]
   "@fabric/hub" -> "@fabric/core" [label=" depends on"]

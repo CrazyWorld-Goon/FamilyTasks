@@ -101,7 +101,17 @@
     "addPeerPlaceholder": "127.0.0.1:7777",
     "addPeerSubmit": "Add peer",
     "addPeerOk": "Peer add request accepted.",
-    "addPeerError": "Could not add peer — check address and Hub logs."
+    "addPeerError": "Could not add peer — check address and Hub logs.",
+    "peerRowAria": "Peer {{id}} at {{address}} — open peer details",
+    "peerDetailAria": "Peer details",
+    "peerDetailHeading": "Peer details",
+    "peerDetailScore": "Score",
+    "peerDetailMetadata": "Hub metadata",
+    "peerDetailMetadataEmpty": "No metadata from the hub for this peer.",
+    "peerSelectHint": "Click a row to open its Peer View page with full id, status line, and metadata.",
+    "peerViewBack": "← Known peers",
+    "peerViewStale": "This peer is no longer in the hub list (disconnected or removed). Refresh or return to the list.",
+    "peerViewInvalid": "This peer link is invalid; go back to Known peers."
   },
   "overview": {
     "ariaFamily": "Family overview",

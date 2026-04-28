@@ -5,6 +5,7 @@ import { FamilyMembersPanel } from "./components/FamilyMembersPanel";
 import { FamilySetupWizard } from "./components/FamilySetupWizard";
 import { OwnerTokenBackup } from "./components/OwnerTokenBackup";
 import FabricNetwork from "./components/FabricNetwork";
+import PeerView from "./components/PeerView";
 import { TasksManageDialog } from "./components/TasksManageDialog";
 import { useI18n } from "./i18n/I18nProvider";
 import { memberRoleLabel } from "./i18n/memberRole";
@@ -24,6 +25,7 @@ import { getEffectiveTaskStatus } from "./logic/taskDay";
 import { buildVirtualPetTasks, formatPlanTime } from "./logic/pets";
 import { getDayPhase, parseHHMMToMinutes, phaseTimeRange, slotFromMinutes } from "./logic/time";
 import type { FamilyMember, MemberId, ShoppingItem, TabId, Task, TaskStatus, TimeSlot, VirtualPetTask } from "./types";
+import { decodePeerViewTab, encodePeerViewTabId, isPeerViewTab } from "./networkPeerTab";
 
 const ACTIVE_TAB_STORAGE_KEY = "familyTasks.activeTab";
 const NEW_TASK_FLASH_MS = 1800;
@@ -33,7 +35,7 @@ function dateKey(d = new Date()): string {
 }
 
 function isMemberId(tab: TabId): tab is MemberId {
-  return tab !== "all" && tab !== "network" && tab !== "shop";
+  return tab !== "all" && tab !== "network" && tab !== "shop" && !isPeerViewTab(tab);
 }
 
 type Row =
@@ -173,6 +175,7 @@ export default function App() {
     }
     if (!raw) return fallback;
     if (raw === "all" || raw === "shop" || raw === "network") return raw;
+    if (typeof raw === "string" && raw.startsWith("network-peer:") && decodePeerViewTab(raw)) return raw as TabId;
     if (DEFAULT_MEMBERS.some((m) => m.id === raw)) return raw as TabId;
     return fallback;
   });
@@ -204,7 +207,7 @@ export default function App() {
     if (!ready || !state) return;
     const uid =
       state.family && typeof state.family.ownerUserId === "string" ? state.family.ownerUserId : undefined;
-    if (tab === "network" && !hasOwnerAdminTokenForUser(uid)) {
+    if ((tab === "network" || isPeerViewTab(tab)) && !hasOwnerAdminTokenForUser(uid)) {
       setTab("all");
     }
   }, [ready, state, tab]);
@@ -212,10 +215,16 @@ export default function App() {
   useEffect(() => {
     if (!ready || !state) return;
     if (members.length === 0) {
-      if (tab !== "all" && tab !== "network" && tab !== "shop") setTab("all");
+      if (tab !== "all" && tab !== "network" && tab !== "shop" && !isPeerViewTab(tab)) setTab("all");
       return;
     }
-    if (tab !== "all" && tab !== "network" && tab !== "shop" && !members.some((m) => m.id === tab)) {
+    if (
+      tab !== "all" &&
+      tab !== "network" &&
+      tab !== "shop" &&
+      !isPeerViewTab(tab) &&
+      !members.some((m) => m.id === tab)
+    ) {
       setTab("all");
     }
   }, [ready, state, members, tab]);
@@ -431,7 +440,8 @@ export default function App() {
   const shoppingOrdered = sortShoppingForDisplay(state.shopping);
   const repurchase = getRepurchaseCandidates(state.shopping);
   const canAccessNetwork = hasOwnerAdminTokenForUser(ownerUserId);
-  const effectiveTab: TabId = tab === "network" && !canAccessNetwork ? "all" : tab;
+  const effectiveTab: TabId =
+    (tab === "network" || isPeerViewTab(tab)) && !canAccessNetwork ? "all" : tab;
   const activeMember = isMemberId(effectiveTab) ? effectiveTab : null;
 
   const rowsForMember = (member: MemberId): { now: Row[]; later: Row[] } => {
@@ -569,9 +579,12 @@ export default function App() {
               type="button"
               className="tab tab-network"
               role="tab"
-              aria-selected={effectiveTab === "network"}
+              aria-selected={effectiveTab === "network" || isPeerViewTab(effectiveTab)}
               onClick={() => setTab("network")}
-              style={{ borderColor: effectiveTab === "network" ? "var(--accent)" : undefined }}
+              style={{
+                borderColor:
+                  effectiveTab === "network" || isPeerViewTab(effectiveTab) ? "var(--accent)" : undefined,
+              }}
             >
               <IconNetwork size={16} className="tab-icon" />
               {t("tabs.network")}
@@ -667,22 +680,32 @@ export default function App() {
           <FamilyMembersPanel members={members} onAdd={addMember} onRemove={removeMember} />
 
         </section>
-      ) : effectiveTab === "network" ? (
+      ) : effectiveTab === "network" || isPeerViewTab(effectiveTab) ? (
         <section aria-label={t("network.aria")} className="network-tab">
           <div className="card fabric-network-card">
-            <h2>
-              <IconNetwork size={18} /> {t("network.heading")}
-            </h2>
-            <p className="section-hint">{t("network.hint")}</p>
-            <p className="section-hint">{t("network.federationFamilyHint")}</p>
-            {hubAddress ? (
-              <p className="fabric-network-target">
-                <code>{hubAddress}</code>
-              </p>
+            {isPeerViewTab(effectiveTab) ? (
+              <PeerView tabId={effectiveTab} hubAddress={hubAddress || undefined} onBack={() => setTab("network")} />
             ) : (
-              <p className="section-hint">{t("network.sameOriginHint")}</p>
+              <>
+                <h2>
+                  <IconNetwork size={18} /> {t("network.heading")}
+                </h2>
+                <p className="section-hint">{t("network.hint")}</p>
+                <p className="section-hint">{t("network.federationFamilyHint")}</p>
+                {hubAddress ? (
+                  <p className="fabric-network-target">
+                    <code>{hubAddress}</code>
+                  </p>
+                ) : (
+                  <p className="section-hint">{t("network.sameOriginHint")}</p>
+                )}
+                <FabricNetwork
+                  hubAddress={hubAddress || undefined}
+                  showDebug
+                  onOpenPeer={(peer, index) => setTab(encodePeerViewTabId(peer, index))}
+                />
+              </>
             )}
-            <FabricNetwork hubAddress={hubAddress || undefined} showDebug />
           </div>
         </section>
       ) : effectiveTab === "shop" ? (
@@ -943,7 +966,7 @@ export default function App() {
                 type="button"
                 className="btn btn-ghost"
                 onClick={() =>
-                  setRequestAssignees((prev) => (prev ? { ...prev, selected: MEMBERS.map((m) => m.id), error: null } : prev))
+                  setRequestAssignees((prev) => (prev ? { ...prev, selected: members.map((m) => m.id), error: null } : prev))
                 }
               >
                 {t("taskRequest.selectAll")}
@@ -959,7 +982,7 @@ export default function App() {
               </button>
             </div>
             <div className="task-request-members">
-              {MEMBERS.map((member) => {
+              {members.map((member) => {
                 const selected = requestAssignees.selected.includes(member.id);
                 return (
                   <button
@@ -1137,7 +1160,7 @@ function PersonSection({
               members={members}
               isFreshTask={r.kind === "task" ? Boolean(freshTaskIds[r.task.id]) : false}
               dayKey={dayKey}
-              viewerMember={member}
+              viewerMember={m.id}
               asOf={asOf}
               onSetTaskNotes={onSetTaskNotes}
               onDoneTask={onDoneTask}
@@ -1173,7 +1196,7 @@ function PersonSection({
               members={members}
               isFreshTask={r.kind === "task" ? Boolean(freshTaskIds[r.task.id]) : false}
               dayKey={dayKey}
-              viewerMember={member}
+              viewerMember={m.id}
               asOf={asOf}
               onSetTaskNotes={onSetTaskNotes}
               onDoneTask={onDoneTask}
