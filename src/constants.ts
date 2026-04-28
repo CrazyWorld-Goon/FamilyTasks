@@ -33,25 +33,8 @@ export const DEFAULT_PET_ASSIGNEE: Record<string, MemberId> = {
   potap: "tamara",
 };
 
-function feedSlots(morning: number, evening: number): PetRoutineSlot[] {
-  return [
-    { kind: "feed", labelKey: "petRoutine.feedMorning", minutes: morning * 60 + 30 },
-    { kind: "feed", labelKey: "petRoutine.feedEvening", minutes: evening * 60 + 30 },
-  ];
-}
-
-/** Прогулки: утро, 18:00, перед сном — только собаки */
-const dogWalks: PetRoutineSlot[] = [
-  { kind: "walk", labelKey: "petRoutine.walkMorning", minutes: 8 * 60 },
-  { kind: "walk", labelKey: "petRoutine.walk1800", minutes: 18 * 60 },
-  { kind: "walk", labelKey: "petRoutine.walkBeforeSleep", minutes: 22 * 60 + 30 },
-];
-
-export function routineForPet(pet: Pet): PetRoutineSlot[] {
-  if (pet.species === "cat") {
-    return feedSlots(7, 19);
-  }
-  return [...feedSlots(7, 19), ...dogWalks];
+export function routineForPet(_pet: Pet): PetRoutineSlot[] {
+  return [];
 }
 
 export const FEED_WINDOW_MIN = 60;

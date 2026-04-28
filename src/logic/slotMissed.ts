@@ -1,5 +1,6 @@
 import { getEffectiveTaskStatus } from "./taskDay";
 import type { Task } from "../types";
+import { parseHHMMToMinutes, slotFromMinutes } from "./time";
 
 /**
  * Конец окна слота по тем же границам, что и getDayPhase (начало следующей фазы).
@@ -28,14 +29,16 @@ function compareDateKeys(a: string, b: string): number {
 }
 
 function slotEndAt(task: Task, taskDayKey: string): Date | null {
-  if (task.slot === "any") return null;
+  const plannedMinutes = parseHHMMToMinutes(task.plannedTime);
+  const effectiveSlot = plannedMinutes != null ? slotFromMinutes(plannedMinutes) : task.slot;
+  if (effectiveSlot === "any" || effectiveSlot === "sleep") return null;
   const base = parseDateKey(taskDayKey);
   if (!base) return null;
   const end = new Date(base);
-  if (task.slot === "night") {
+  if (effectiveSlot === "night") {
     end.setDate(end.getDate() + 1);
   }
-  end.setHours(SLOT_END_HOUR[task.slot], 0, 0, 0);
+  end.setHours(SLOT_END_HOUR[effectiveSlot], 0, 0, 0);
   return end;
 }
 
@@ -44,7 +47,9 @@ function slotEndAt(task: Task, taskDayKey: string): Date | null {
  * Для задач прошлых дней просрочка сохраняется во всех фазах до выполнения.
  */
 export function isTaskSlotMissedToday(task: Task, now: Date, todayKey: string): boolean {
-  if (task.slot === "any") return false;
+  const plannedMinutes = parseHHMMToMinutes(task.plannedTime);
+  const effectiveSlot = plannedMinutes != null ? slotFromMinutes(plannedMinutes) : task.slot;
+  if (effectiveSlot === "any" || effectiveSlot === "sleep") return false;
   if (getEffectiveTaskStatus(task, todayKey) !== "planned") return false;
 
   const refDayKey = task.recurrence === "daily" ? todayKey : task.dueDate ?? todayKey;

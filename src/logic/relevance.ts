@@ -1,7 +1,7 @@
 import type { DayPhase, MemberId, ShoppingItem, Task, TaskStatus, TimeSlot, VirtualPetTask } from "../types";
 import { getEffectiveTaskStatus } from "./taskDay";
 import { isTaskSlotMissedToday } from "./slotMissed";
-import { getDayPhase, inWindow, slotMatchesPhase } from "./time";
+import { getDayPhase, inWindow, parseHHMMToMinutes, slotFromMinutes, slotMatchesPhase } from "./time";
 
 /** Окно «актуально по времени» для питомца — без учёта статуса (для строк «готово» в том же блоке). */
 export function petRelevantWindow(v: VirtualPetTask, phase: DayPhase, nowMin: number): boolean {
@@ -31,8 +31,11 @@ export function petTaskRelevantNow(v: VirtualPetTask, phase: DayPhase, nowMin: n
 
 /** Окно слота / фазы для задачи — без учёта статуса выполнения. */
 export function taskRelevantWindow(t: Task, phase: DayPhase, today: string, now: Date = new Date()): boolean {
-  if (t.slot === "any") return slotMatchesPhase(t.slot, phase);
-  if (slotMatchesPhase(t.slot, phase)) return true;
+  const plannedMinutes = parseHHMMToMinutes(t.plannedTime);
+  const effectiveSlot = plannedMinutes != null ? slotFromMinutes(plannedMinutes) : t.slot;
+  if (effectiveSlot === "any") return slotMatchesPhase(effectiveSlot, phase);
+  if (effectiveSlot === "sleep") return phase === "sleep";
+  if (slotMatchesPhase(effectiveSlot, phase)) return true;
   return isTaskSlotMissedToday(t, now, today);
 }
 

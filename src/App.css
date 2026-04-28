@@ -312,6 +312,10 @@ body {
   min-width: 0;
 }
 
+.task-manage-form--permanent {
+  gap: 0.25rem;
+}
+
 .task-manage-input,
 .task-manage-form textarea,
 .task-manage-form select,
@@ -350,6 +354,14 @@ body {
   color: var(--muted);
   font-weight: 600;
   min-width: 0;
+  flex: 0 0 auto;
+}
+
+.task-manage-label--compact {
+  gap: 0.1rem;
+}
+
+.task-manage-form-row .task-manage-label {
   flex: 1 1 7rem;
 }
 
@@ -366,8 +378,35 @@ body {
   margin-top: 0.15rem;
 }
 
+.task-manage-form-actions--compact {
+  margin-top: 0;
+}
+
 .task-manage-status {
   max-width: 10rem;
+}
+
+.task-manage-error {
+  margin: -0.1rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #a24a63;
+}
+
+.task-manage-assignees-summary {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.task-manage-preview {
+  margin: 0.05rem 0 0;
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: #f8f2ea;
+  border: 1px solid #eadccf;
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.55rem;
 }
 
 .task-manage-hint {
@@ -375,6 +414,39 @@ body {
   font-size: 0.78rem;
   color: var(--muted);
   line-height: 1.4;
+}
+
+.task-manage-mode-switch {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.task-manage-mode-switch .btn[aria-pressed="true"] {
+  background: #e9f1ea;
+  border-color: #cddfce;
+}
+
+.task-manage-permanent {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.task-manage-assignees {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.task-manage-label-text {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.task-manage-assignees-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.7rem;
 }
 
 .task-manage-footer {
@@ -461,6 +533,10 @@ body {
   max-width: 100%;
 }
 
+.card-later {
+  background: #c6d8e7;
+}
+
 .card + .card {
   margin-top: 0.85rem;
 }
@@ -512,6 +588,26 @@ body {
 
 .row--task-fresh {
   animation: task-flash 1.8s ease;
+}
+
+.row--task-requested {
+  background: linear-gradient(90deg, #ffe8cf 0%, #fff1df 0.8rem, #fff8ef 2rem, #fff8ef 100%);
+  border-left: 4px solid #e8a87c;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.5rem 0.6rem 0.4rem;
+  margin: 0.2rem 0 0.45rem;
+  border-bottom: none;
+  box-shadow: 0 1px 0 #f0e6da;
+}
+
+.row--task-missed {
+  background: linear-gradient(90deg, #f7d4d1 0%, #fbe3e1 0.8rem, #fff2f1 2rem, #fff2f1 100%);
+  border-left: 4px solid #c97f7a;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.5rem 0.6rem 0.4rem;
+  margin: 0.2rem 0 0.45rem;
+  border-bottom: none;
+  box-shadow: 0 1px 0 #f0e6da;
 }
 
 /* Текст задачи/питомца — может сжиматься; иначе выталкивает кнопки за экран */
@@ -630,6 +726,14 @@ body {
 
 .row-actions--task {
   justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 0.3rem;
+}
+
+.row-actions--task .btn,
+.row-actions--task .status-pill {
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
 /* Пилюли статуса: ожидание / просрочено по слоту / готово */
@@ -709,6 +813,31 @@ body {
   width: 100%;
 }
 
+.task-request-dialog {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.task-request-dialog h3 {
+  margin: 0;
+}
+
+.task-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.task-request-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.task-request-member-btn {
+  min-width: 6.2rem;
+}
+
 .btn-cancel-done {
   background: linear-gradient(135deg, #e57b54, #cf5f3a);
   color: #fff;
@@ -736,6 +865,8 @@ body {
 
   .row-actions--task {
     justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
   }
 
   .status-pill--pending,
@@ -743,6 +874,28 @@ body {
   .status-pill--done {
     white-space: normal;
     text-align: left;
+  }
+
+  .row-actions--task .status-pill {
+    min-height: 2.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .row-actions--task .btn {
+    min-height: 2.25rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.72rem;
+    gap: 0.2rem;
+    white-space: nowrap;
+  }
+
+  .row-actions--task .btn svg,
+  .row-actions--task .status-pill svg {
+    width: 14px;
+    height: 14px;
   }
 
   .row-actions .btn-ghost,

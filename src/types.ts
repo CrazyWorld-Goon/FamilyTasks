@@ -33,8 +33,14 @@ export interface Task {
   id: string;
   title: string;
   assignee: MemberId;
+  /** Для постоянных/общих задач: несколько исполнителей, любой может закрыть задачу за день. */
+  assignees?: MemberId[];
+  /** Для постоянных задач: активность шаблона (если false — не показывать в ежедневных списках). */
+  active?: boolean;
   status: TaskStatus;
   slot: TimeSlot;
+  /** Опциональное точное время выполнения (HH:MM). */
+  plannedTime?: string;
   /** ISO date YYYY-MM-DD, опционально */
   dueDate?: string;
   /** Если задано — снова в плане после смены дня, пока не отмечено сегодня. */

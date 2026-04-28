@@ -11,7 +11,7 @@ import { isTaskSlotMissedToday } from "./logic/slotMissed";
 import { getRepurchaseCandidates, sortShoppingForDisplay } from "./logic/shoppingList";
 import { getEffectiveTaskStatus } from "./logic/taskDay";
 import { buildVirtualPetTasks, formatPlanTime } from "./logic/pets";
-import { getDayPhase, phaseTimeRange } from "./logic/time";
+import { getDayPhase, parseHHMMToMinutes, phaseTimeRange, slotFromMinutes } from "./logic/time";
 import type { MemberId, ShoppingItem, TabId, Task, TaskStatus, TimeSlot, VirtualPetTask } from "./types";
 
 const ACTIVE_TAB_STORAGE_KEY = "familyTasks.activeTab";
@@ -39,6 +39,13 @@ type RemoveConfirmState =
   | { kind: "shop"; id: string; title: string }
   | { kind: "repurchase"; key: string; title: string };
 
+type RequestAssigneesState = {
+  taskId: string;
+  taskTitle: string;
+  selected: MemberId[];
+  error: string | null;
+};
+
 const LATER_PHASE_ORDER: Record<Exclude<TimeSlot, "any"> | "sleep" | "any", number> = {
   morning: 0,
   day: 1,
@@ -48,25 +55,24 @@ const LATER_PHASE_ORDER: Record<Exclude<TimeSlot, "any"> | "sleep" | "any", numb
   any: 5,
 };
 
-function phaseForMinutes(totalMinutes: number): Exclude<TimeSlot, "any"> | "sleep" {
-  const h = Math.floor(totalMinutes / 60);
-  if (h >= 5 && h < 12) return "morning";
-  if (h >= 12 && h < 17) return "day";
-  if (h >= 17 && h < 22) return "evening";
-  if (h >= 22 || h < 1) return "night";
-  return "sleep";
-}
-
 function laterRowSortKey(row: Row): { phase: number; minute: number; title: string } {
   if (row.kind === "pet") {
     const minute = row.pet.plannedMinutes;
     return {
-      phase: LATER_PHASE_ORDER[phaseForMinutes(minute)],
+      phase: LATER_PHASE_ORDER[slotFromMinutes(minute)],
       minute,
       title: row.pet.title,
     };
   }
   if (row.kind === "task") {
+    const plannedMinutes = parseHHMMToMinutes(row.task.plannedTime);
+    if (plannedMinutes != null) {
+      return {
+        phase: LATER_PHASE_ORDER[slotFromMinutes(plannedMinutes)],
+        minute: plannedMinutes,
+        title: row.task.title,
+      };
+    }
     const slot = row.task.slot;
     const minuteBySlot: Record<TimeSlot, number> = {
       morning: 5 * 60,
@@ -146,10 +152,13 @@ export default function App() {
   const [shopAssignee, setShopAssignee] = useState<MemberId>("anya");
   const [taskDraft, setTaskDraft] = useState("");
   const [taskSlot, setTaskSlot] = useState<TimeSlot>("any");
+  const [taskScheduleMode, setTaskScheduleMode] = useState<"slot" | "time">("slot");
+  const [taskPlannedTime, setTaskPlannedTime] = useState("");
   const [taskDaily, setTaskDaily] = useState(false);
   const [freshTaskIds, setFreshTaskIds] = useState<Record<string, number>>({});
   const [doneConfirm, setDoneConfirm] = useState<DoneConfirmState | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState<RemoveConfirmState | null>(null);
+  const [requestAssignees, setRequestAssignees] = useState<RequestAssigneesState | null>(null);
   const knownTaskIdsRef = useRef<Set<string> | null>(null);
   const flashTimeoutsRef = useRef<number[]>([]);
 
@@ -213,6 +222,68 @@ export default function App() {
     return () => clearTimeout(id);
   }, [toast]);
 
+  const onDonePet = (pet: VirtualPetTask) => {
+    setPetCompletion(pet.id, "done");
+  };
+
+  const onRequestUndoPet = (pet: VirtualPetTask) => {
+    setDoneConfirm({ kind: "pet", id: pet.id, title: pet.title });
+  };
+
+  const onSkipPetWalk = (pet: VirtualPetTask) => {
+    setPetCompletion(pet.id, "skipped");
+    showToast(t("toasts.walkSkipped"));
+  };
+
+  const onDoneTask = (task: Task) => {
+    setTaskStatus(task.id, "done");
+  };
+
+  const onRequestUndoTask = (task: Task) => {
+    setDoneConfirm({ kind: "task", id: task.id, title: task.title });
+  };
+
+  const onRequestTaskAssignees = useCallback((task: Task) => {
+    const selected = task.assignees?.length ? Array.from(new Set(task.assignees)) : [task.assignee];
+    setRequestAssignees({
+      taskId: task.id,
+      taskTitle: task.title,
+      selected,
+      error: null,
+    });
+  }, []);
+
+  const toggleRequestedAssignee = useCallback((memberId: MemberId) => {
+    setRequestAssignees((prev) => {
+      if (!prev) return prev;
+      const selected = prev.selected.includes(memberId)
+        ? prev.selected.filter((id) => id !== memberId)
+        : [...prev.selected, memberId];
+      return { ...prev, selected, error: null };
+    });
+  }, []);
+
+  const saveRequestedAssignees = useCallback(() => {
+    setRequestAssignees((prev) => {
+      if (!prev) return prev;
+      if (prev.selected.length === 0) {
+        return { ...prev, error: t("taskRequest.validationAssigneeRequired") };
+      }
+      updateTask(prev.taskId, { assignees: prev.selected });
+      showToast(t("toasts.taskSaved"));
+      return null;
+    });
+  }, [showToast, t, updateTask]);
+
+  useEffect(() => {
+    if (!requestAssignees) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setRequestAssignees(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [requestAssignees]);
+
   if (!ready || !state) {
     if (initialError) {
       return (
@@ -245,7 +316,9 @@ export default function App() {
   const activeMember = isMemberId(tab) ? tab : null;
 
   const rowsForMember = (member: MemberId): { now: Row[]; later: Row[] } => {
-    const tasks = state.tasks.filter((t) => t.assignee === member);
+    const tasks = state.tasks.filter(
+      (t) => t.active !== false && (t.assignees?.length ? t.assignees.includes(member) : t.assignee === member),
+    );
     const pets = virtualPets.filter((v) => v.assignee === member);
     const memberShops = state.shopping.filter((s) => s.assignee === member);
 
@@ -295,27 +368,6 @@ export default function App() {
     return { now: nowRows, later: sortLaterRows(laterRows, locale) };
   };
 
-  const onDonePet = (pet: VirtualPetTask) => {
-    setPetCompletion(pet.id, "done");
-  };
-
-  const onRequestUndoPet = (pet: VirtualPetTask) => {
-    setDoneConfirm({ kind: "pet", id: pet.id, title: pet.title });
-  };
-
-  const onSkipPetWalk = (pet: VirtualPetTask) => {
-    setPetCompletion(pet.id, "skipped");
-    showToast(t("toasts.walkSkipped"));
-  };
-
-  const onDoneTask = (task: Task) => {
-    setTaskStatus(task.id, "done");
-  };
-
-  const onRequestUndoTask = (task: Task) => {
-    setDoneConfirm({ kind: "task", id: task.id, title: task.title });
-  };
-
   const onBought = (item: ShoppingItem) => {
     markShoppingBought(item.id);
     showToast(t("toasts.boughtHome", { title: item.title }));
@@ -341,8 +393,15 @@ export default function App() {
     e.preventDefault();
     if (!taskDraft.trim()) return;
     const daily = taskDaily;
-    addTask(taskDraft, member, taskSlot, daily ? { recurrence: "daily" } : undefined);
+    const normalizedTime = taskScheduleMode === "time" ? parseHHMMToMinutes(taskPlannedTime) : null;
+    if (taskScheduleMode === "time" && normalizedTime == null) return;
+    addTask(taskDraft, member, taskScheduleMode === "slot" ? taskSlot : "any", {
+      ...(daily ? { recurrence: "daily" as const } : undefined),
+      ...(taskScheduleMode === "time" ? { plannedTime: taskPlannedTime } : undefined),
+    });
     setTaskDraft("");
+    setTaskPlannedTime("");
+    setTaskScheduleMode("slot");
     setTaskDaily(false);
     showToast(daily ? t("toasts.taskAddedDaily") : t("toasts.taskAdded"));
   };
@@ -428,7 +487,7 @@ export default function App() {
             </h2>
             <p className="section-hint">
               {t("overview.currentHintBefore")} <strong>{t(`phase.${phase}`)}</strong> {t("overview.currentHintMiddle")}{" "}
-              <strong>{t("tabs.shop")}</strong>.
+              {/* <strong>{t("tabs.shop")}</strong>. */}
             </p>
             {MEMBERS.map((m) => {
               const { now: memberNowRows } = rowsForMember(m.id);
@@ -453,6 +512,7 @@ export default function App() {
                         row={r}
                         isFreshTask={r.kind === "task" ? Boolean(freshTaskIds[r.task.id]) : false}
                         dayKey={dk}
+                        viewerMember={m.id}
                         asOf={now}
                         onSetTaskNotes={setTaskNotes}
                         onDoneTask={onDoneTask}
@@ -461,6 +521,7 @@ export default function App() {
                         onSkipPetWalk={onSkipPetWalk}
                         onBought={onBought}
                         onRequestUndoTask={onRequestUndoTask}
+                        onRequestAssignees={onRequestTaskAssignees}
                         onRequestUndoShopping={onRequestUndoShopping}
                       />
                     ))
@@ -487,6 +548,7 @@ export default function App() {
                   row={{ kind: "shop", item }}
                   isFreshTask={false}
                   dayKey={dk}
+                  viewerMember={undefined}
                   asOf={now}
                   onSetTaskNotes={setTaskNotes}
                   onDoneTask={onDoneTask}
@@ -495,6 +557,7 @@ export default function App() {
                   onSkipPetWalk={onSkipPetWalk}
                   onBought={onBought}
                   onRequestUndoTask={onRequestUndoTask}
+                  onRequestAssignees={onRequestTaskAssignees}
                   onRequestUndoShopping={onRequestUndoShopping}
                   onRemoveShop={onRemoveShop}
                 />
@@ -589,12 +652,17 @@ export default function App() {
           onSkipPetWalk={onSkipPetWalk}
           onBought={onBought}
           onRequestUndoTask={onRequestUndoTask}
+          onRequestAssignees={onRequestTaskAssignees}
           onRequestUndoShopping={onRequestUndoShopping}
           onRemoveShop={onRemoveShop}
           taskDraft={taskDraft}
           setTaskDraft={setTaskDraft}
           taskSlot={taskSlot}
           setTaskSlot={setTaskSlot}
+          taskScheduleMode={taskScheduleMode}
+          setTaskScheduleMode={setTaskScheduleMode}
+          taskPlannedTime={taskPlannedTime}
+          setTaskPlannedTime={setTaskPlannedTime}
           taskDaily={taskDaily}
           setTaskDaily={setTaskDaily}
           onSetTaskNotes={setTaskNotes}
@@ -704,6 +772,66 @@ export default function App() {
         </div>
       ) : null}
 
+      {requestAssignees ? (
+        <div className="confirm-backdrop" role="presentation" onClick={() => setRequestAssignees(null)}>
+          <div
+            className="confirm-dialog card task-request-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("taskRequest.aria")}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>{t("taskRequest.title")}</h3>
+            <p className="sync-error-hint">{t("taskRequest.hint", { title: requestAssignees.taskTitle })}</p>
+            <div className="task-request-actions">
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() =>
+                  setRequestAssignees((prev) => (prev ? { ...prev, selected: MEMBERS.map((m) => m.id), error: null } : prev))
+                }
+              >
+                {t("taskRequest.selectAll")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() =>
+                  setRequestAssignees((prev) => (prev ? { ...prev, selected: [], error: null } : prev))
+                }
+              >
+                {t("taskRequest.clearAll")}
+              </button>
+            </div>
+            <div className="task-request-members">
+              {MEMBERS.map((member) => {
+                const selected = requestAssignees.selected.includes(member.id);
+                return (
+                  <button
+                    key={member.id}
+                    type="button"
+                    className={selected ? "btn btn-primary task-request-member-btn" : "btn btn-ghost task-request-member-btn"}
+                    onClick={() => toggleRequestedAssignee(member.id)}
+                    aria-pressed={selected}
+                  >
+                    {member.shortName}
+                  </button>
+                );
+              })}
+            </div>
+            {requestAssignees.error ? <p className="task-manage-error">{requestAssignees.error}</p> : null}
+            <div className="confirm-actions">
+              <button type="button" className="btn btn-cancel-done" onClick={saveRequestedAssignees}>
+                {t("taskRequest.save")}
+              </button>
+              <button type="button" className="btn btn-keep-done" onClick={() => setRequestAssignees(null)}>
+                {t("taskRequest.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {toast ? <div className="toast" role="status">{toast}</div> : null}
 
       <TasksManageDialog
@@ -719,6 +847,30 @@ export default function App() {
             notes: data.notes,
             status: data.status,
             daily: data.daily,
+            assignees: data.assignees,
+            plannedTime: data.plannedTime,
+          });
+          showToast(t("toasts.taskSaved"));
+        }}
+        onCreatePermanent={(data) => {
+          const first = data.assignees[0];
+          if (!first) return;
+          addTask(data.title, first, data.slot, {
+            recurrence: "daily",
+            assignees: data.assignees,
+            active: data.active,
+            plannedTime: data.plannedTime,
+          });
+          showToast(t("toasts.taskAddedDaily"));
+        }}
+        onUpdatePermanent={(id, data) => {
+          updateTask(id, {
+            title: data.title,
+            slot: data.slot,
+            daily: true,
+            assignees: data.assignees,
+            active: data.active,
+            plannedTime: data.plannedTime,
           });
           showToast(t("toasts.taskSaved"));
         }}
@@ -744,12 +896,17 @@ function PersonSection({
   onSkipPetWalk,
   onBought,
   onRequestUndoTask,
+  onRequestAssignees,
   onRequestUndoShopping,
   onRemoveShop,
   taskDraft,
   setTaskDraft,
   taskSlot,
   setTaskSlot,
+  taskScheduleMode,
+  setTaskScheduleMode,
+  taskPlannedTime,
+  setTaskPlannedTime,
   taskDaily,
   setTaskDaily,
   onSetTaskNotes,
@@ -767,12 +924,17 @@ function PersonSection({
   onSkipPetWalk: (p: VirtualPetTask) => void;
   onBought: (s: ShoppingItem) => void;
   onRequestUndoTask: (t: Task) => void;
+  onRequestAssignees: (t: Task) => void;
   onRequestUndoShopping: (s: ShoppingItem) => void;
   onRemoveShop: (s: ShoppingItem) => void;
   taskDraft: string;
   setTaskDraft: (s: string) => void;
   taskSlot: TimeSlot;
   setTaskSlot: (s: TimeSlot) => void;
+  taskScheduleMode: "slot" | "time";
+  setTaskScheduleMode: (value: "slot" | "time") => void;
+  taskPlannedTime: string;
+  setTaskPlannedTime: (value: string) => void;
   taskDaily: boolean;
   setTaskDaily: (v: boolean) => void;
   onSetTaskNotes: (id: string, n: string) => void;
@@ -816,6 +978,7 @@ function PersonSection({
               row={r}
               isFreshTask={r.kind === "task" ? Boolean(freshTaskIds[r.task.id]) : false}
               dayKey={dayKey}
+              viewerMember={member}
               asOf={asOf}
               onSetTaskNotes={onSetTaskNotes}
               onDoneTask={onDoneTask}
@@ -824,6 +987,7 @@ function PersonSection({
               onSkipPetWalk={onSkipPetWalk}
               onBought={onBought}
               onRequestUndoTask={onRequestUndoTask}
+              onRequestAssignees={onRequestAssignees}
               onRequestUndoShopping={onRequestUndoShopping}
               onRemoveShop={onRemoveShop}
             />
@@ -831,7 +995,7 @@ function PersonSection({
         )}
       </div>
 
-      <div className="card">
+      <div className="card card-later">
         <h2>{t("personView.laterHeading")}</h2>
         <p className="section-hint">{t("personView.laterHint")}</p>
         {laterRows.length === 0 ? (
@@ -849,6 +1013,7 @@ function PersonSection({
               row={r}
               isFreshTask={r.kind === "task" ? Boolean(freshTaskIds[r.task.id]) : false}
               dayKey={dayKey}
+              viewerMember={member}
               asOf={asOf}
               onSetTaskNotes={onSetTaskNotes}
               onDoneTask={onDoneTask}
@@ -857,6 +1022,7 @@ function PersonSection({
               onSkipPetWalk={onSkipPetWalk}
               onBought={onBought}
               onRequestUndoTask={onRequestUndoTask}
+              onRequestAssignees={onRequestAssignees}
               onRequestUndoShopping={onRequestUndoShopping}
               onRemoveShop={onRemoveShop}
             />
@@ -871,13 +1037,26 @@ function PersonSection({
         <form className="forms" onSubmit={onSubmitTask}>
           <div className="input-row">
             <input value={taskDraft} onChange={(e) => setTaskDraft(e.target.value)} placeholder={t("personView.quickTaskPlaceholder")} />
-            <select value={taskSlot} onChange={(e) => setTaskSlot(e.target.value as TimeSlot)}>
-              <option value="morning">{t("slots.morning")}</option>
-              <option value="day">{t("slots.day")}</option>
-              <option value="evening">{t("slots.evening")}</option>
-              <option value="night">{t("slots.night")}</option>
-              <option value="any">{t("slots.any")}</option>
+            <select value={taskScheduleMode} onChange={(e) => setTaskScheduleMode(e.target.value as "slot" | "time")}>
+              <option value="slot">{t("tasksManage.whenTypeSlot")}</option>
+              <option value="time">{t("tasksManage.whenTypeTime")}</option>
             </select>
+            {taskScheduleMode === "slot" ? (
+              <select value={taskSlot} onChange={(e) => setTaskSlot(e.target.value as TimeSlot)}>
+                <option value="morning">{t("slots.morning")}</option>
+                <option value="day">{t("slots.day")}</option>
+                <option value="evening">{t("slots.evening")}</option>
+                <option value="night">{t("slots.night")}</option>
+                <option value="any">{t("slots.any")}</option>
+              </select>
+            ) : (
+              <input
+                type="time"
+                value={taskPlannedTime}
+                onChange={(e) => setTaskPlannedTime(e.target.value)}
+                aria-label={t("personView.quickTaskTimeAria")}
+              />
+            )}
             <button type="submit" className="btn btn-primary">
               {t("personView.quickTaskSubmit")}
             </button>
@@ -897,16 +1076,20 @@ function TaskItemRow({
   eff,
   slotMissed,
   isFreshTask,
+  viewerMember,
   onDone,
   onRequestUndoTask,
+  onRequestAssignees,
   onSetTaskNotes,
 }: {
   task: Task;
   eff: TaskStatus;
   slotMissed: boolean;
   isFreshTask: boolean;
+  viewerMember?: MemberId;
   onDone: () => void;
   onRequestUndoTask: (task: Task) => void;
+  onRequestAssignees: (task: Task) => void;
   onSetTaskNotes: (id: string, n: string) => void;
 }) {
   const { t } = useI18n();
@@ -919,12 +1102,26 @@ function TaskItemRow({
 
   const hasNotes = Boolean(task.notes?.trim());
   const slotShort = t(`slots.slotHintShort.${task.slot}`);
+  const requestedForViewer =
+    viewerMember != null &&
+    task.assignees?.includes(viewerMember) &&
+    task.assignee !== viewerMember;
   return (
-    <div className={isFreshTask ? "row row--task row--task-fresh" : "row row--task"}>
+    <div
+      className={[
+        "row",
+        "row--task",
+        isFreshTask ? "row--task-fresh" : "",
+        slotMissed ? "row--task-missed" : "",
+        requestedForViewer ? "row--task-requested" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <div>
         <div className="row-title">{task.title}</div>
         <div className="row-meta">
-          {t("taskRow.metaSlot", { slot: slotShort })}
+          {task.plannedTime ? t("taskRow.metaTime", { time: task.plannedTime }) : t("taskRow.metaSlot", { slot: slotShort })}
           {task.recurrence === "daily" ? (
             <span className="badge badge-daily" title={t("statusLabels.dailyRepeatTitle")}>
               {t("tasksManage.dailyBadge")}
@@ -960,6 +1157,10 @@ function TaskItemRow({
       <div className="row-actions row-actions--task">
         {eff === "planned" ? (
           <>
+            <button type="button" className="btn btn-ghost" onClick={() => onRequestAssignees(task)}>
+              <IconUsers size={16} />
+              {t("taskRow.request")}
+            </button>
             <span
               className={slotMissed ? "status-pill status-pill--missed" : "status-pill status-pill--pending"}
               title={slotMissed ? t("statusLabels.slotMissedTitle") : t("statusLabels.statusGeneric")}
@@ -991,6 +1192,7 @@ function RowView({
   row,
   isFreshTask,
   dayKey,
+  viewerMember,
   asOf = new Date(),
   onSetTaskNotes,
   onDoneTask,
@@ -999,12 +1201,14 @@ function RowView({
   onSkipPetWalk,
   onBought,
   onRequestUndoTask,
+  onRequestAssignees,
   onRequestUndoShopping,
   onRemoveShop,
 }: {
   row: Row;
   isFreshTask: boolean;
   dayKey: string;
+  viewerMember?: MemberId;
   asOf?: Date;
   onSetTaskNotes: (id: string, n: string) => void;
   onDoneTask: (t: Task) => void;
@@ -1013,6 +1217,7 @@ function RowView({
   onSkipPetWalk: (p: VirtualPetTask) => void;
   onBought: (s: ShoppingItem) => void;
   onRequestUndoTask: (t: Task) => void;
+  onRequestAssignees: (t: Task) => void;
   onRequestUndoShopping: (s: ShoppingItem) => void;
   onRemoveShop?: (s: ShoppingItem) => void;
 }) {
@@ -1100,8 +1305,10 @@ function RowView({
         eff={eff}
         slotMissed={slotMissed}
         isFreshTask={isFreshTask}
+        viewerMember={viewerMember}
         onDone={() => onDoneTask(task)}
         onRequestUndoTask={onRequestUndoTask}
+        onRequestAssignees={onRequestAssignees}
         onSetTaskNotes={onSetTaskNotes}
       />
     );
