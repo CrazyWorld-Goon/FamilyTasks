@@ -366,10 +366,6 @@ export default function App() {
           </div>
         </div>
         <div className="header-actions">
-          <div className="phase-pill" title={phaseTimeRange(phase)}>
-            <IconClock size={16} />
-            {t(`phase.${phase}`)}
-          </div>
           <label className="lang-picker">
             <span className="visually-hidden">{t("lang.label")}</span>
             <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)} aria-label={t("lang.label")}>
@@ -377,6 +373,10 @@ export default function App() {
               <option value="ru">{t("lang.ru")}</option>
             </select>
           </label>
+          <div className="phase-pill" title={phaseTimeRange(phase)}>
+            <IconClock size={16} />
+            {t(`phase.${phase}`)}
+          </div>
         </div>
       </header>
 
