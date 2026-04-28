@@ -6,7 +6,7 @@ $ npm i
 [family-tasks] Patched @fabric/core: copied fabricDocumentOfferEnvelope.js from /Users/eric/hub.fabric.pub/functions/fabricDocumentOfferEnvelope.js
 [family-tasks] Patched @fabric/hub: copied fabricDocumentOfferEnvelope.js from /Users/eric/hub.fabric.pub/functions/fabricDocumentOfferEnvelope.js
 
-added 1045 packages, and audited 1046 packages in 3m
+added 1045 packages, and audited 1046 packages in 2m
 
 131 packages are looking for funding
   run `npm fund` for details
