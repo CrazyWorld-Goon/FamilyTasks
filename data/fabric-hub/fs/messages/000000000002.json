@@ -1,0 +1,17 @@
+{
+  "id": "0ca487494b5ce3ebe465ad5230406493ef73d603e78b9d74bc1beaf3f991796e",
+  "seq": 2,
+  "type": "BitcoinBlock",
+  "payload": {
+    "tip": "39917203d62d1f5f5078e97d0767d10a9a334bb5e07e29de3a873f7aecca368e",
+    "height": 3639,
+    "network": "regtest",
+    "supply": 14949.9992147,
+    "at": "2026-03-26T11:42:07.095Z",
+    "source": "p2p-gossip",
+    "p2pOrigin": "hub.fabric.pub:7777"
+  },
+  "created": "2026-04-28T21:33:40.941Z",
+  "chainBlock": "4ae3524fbc820ea47ab1e116d754a9956c96dfd343e7575baa53a6b4a3a3f200",
+  "chainTip": "4ae3524fbc820ea47ab1e116d754a9956c96dfd343e7575baa53a6b4a3a3f200"
+}

@@ -403,7 +403,7 @@ export function usePersistedApp() {
   );
 
   const setFamilyProfile = useCallback(
-    (input: { displayName?: string; description?: string }) => {
+    (input: { displayName?: string; description?: string; bitcoinFeatures?: boolean }) => {
       update((s) => {
         const fam = s.family ?? { setupComplete: true };
         const next: typeof fam = { ...fam };
@@ -414,6 +414,9 @@ export function usePersistedApp() {
         if (input.description !== undefined) {
           const v = input.description.trim();
           next.description = v.length > 0 ? v : undefined;
+        }
+        if (input.bitcoinFeatures !== undefined) {
+          next.bitcoinFeatures = input.bitcoinFeatures;
         }
         return { ...s, family: next };
       });
@@ -580,6 +583,35 @@ export function usePersistedApp() {
     [update],
   );
 
+  const updateMember = useCallback(
+    (id: MemberId, patch: { shortName: string; fullName: string; role: string; color: string }) => {
+      update((s) => {
+        const users = s.users ?? DEFAULT_MEMBERS.map((m) => ({ ...m }));
+        const colorRaw = patch.color.trim();
+        const color = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(colorRaw) ? colorRaw : "#7b9eb8";
+        const shortName = patch.shortName.trim();
+        const fullName = patch.fullName.trim();
+        const role = patch.role.trim();
+        if (!shortName || !fullName || !role) return s;
+        return {
+          ...s,
+          users: users.map((u) =>
+            u.id === id
+              ? {
+                  ...u,
+                  shortName,
+                  fullName,
+                  role,
+                  color,
+                }
+              : u,
+          ),
+        };
+      });
+    },
+    [update],
+  );
+
   const resetDemo = useCallback(() => {
     setState(createSeedState());
   }, []);
@@ -610,6 +642,7 @@ export function usePersistedApp() {
     deleteTask,
     setPetCompletion,
     addMember,
+    updateMember,
     removeMember,
     completeFamilySetup,
     setFabricTasksPublic,

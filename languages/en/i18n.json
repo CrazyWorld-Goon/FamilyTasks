@@ -36,6 +36,7 @@
     "displayNamePlaceholder": "e.g. The Smiths",
     "descriptionLabel": "Description",
     "descriptionPlaceholder": "House rules, reminders, or a short note for your home screens…",
+    "bitcoinFeatures": "Bitcoin Features",
     "saveProfile": "Save household details",
     "toastSaved": "Household details saved"
   },
@@ -81,6 +82,8 @@
     "organizer": "You:",
     "networkHeading": "Fabric network",
     "networkHint": "Share tasks with other households only when you opt in below and mark individual tasks.",
+    "bitcoinFeaturesLabel": "Bitcoin Features",
+    "bitcoinFeaturesHint": "Controls Bitcoin-specific shopping UI: budget, Bitcoin funding, and payout requests. When off, these elements are hidden.",
     "openNetwork": "Open Network tab",
     "securityHeading": "Credential backup",
     "securityHint": "Save another copy of your signed owner token (same as onboarding).",
@@ -188,8 +191,15 @@
     "role": "Role / label",
     "color": "Tab color",
     "add": "Add person",
+    "edit": "Edit",
+    "editTitle": "Edit member",
+    "saveEdit": "Save",
+    "cancelEdit": "Cancel",
     "remove": "Remove",
-    "cannotRemoveLast": "Keep at least one person"
+    "cannotRemoveLast": "Keep at least one person",
+    "removeConfirmTitle": "Remove member?",
+    "removeConfirmBody": "Remove member \"{{name}}\"? Their tasks and shopping will be reassigned to the first person in the list.",
+    "removeConfirmKeep": "Keep"
   },
   "tabs": {
     "ariaSections": "Sections",
@@ -434,6 +444,7 @@
     "selectAll": "Select all",
     "clearAll": "Clear all",
     "validationAssigneeRequired": "Select at least one assignee.",
+    "ask": "Ask",
     "save": "Save",
     "cancel": "Cancel"
   },

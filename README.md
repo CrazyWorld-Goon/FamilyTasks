@@ -74,7 +74,7 @@ npm start
 
 With `NODE_ENV=production`, static files are served from the build’s base: set **`APP_BASE`** or **`FABRIC_APP_BASE`** to match `vite build` (see `server/api.mjs`). Port: **`PORT`** or **`FABRIC_HUB_PORT`** (Hub default in settings is often **8080** if env unset — check `settings/local.cjs`).
 
-**On disk:** `data/app-state.json` plus **`data/fabric-hub/`** (Hub FS, peers, etc.). Root directory: **`DATA_DIR`**. Do not commit runtime data (see `.gitignore`).
+**On disk:** canonical document is persisted into **`data/fabric-family-tasks-store/`** (LevelDB) and mirrored to `data/app-state.json`; Hub runtime data is in **`data/fabric-hub/`** (FS, peers, etc.). Root directory: **`DATA_DIR`**. Do not commit runtime data (see `.gitignore`).
 
 **Preview without backend:** `npm run preview` — static only, **no persistence**; use `npm run dev` or `npm start` for full loop.
 
@@ -107,7 +107,7 @@ npm start
 
 `NODE_ENV=production`: статика с префикса сборки — задайте **`APP_BASE`** или **`FABRIC_APP_BASE`** в согласовании с `vite build` (см. `server/api.mjs`). Порт: **`PORT`** / **`FABRIC_HUB_PORT`** (в настройках Hub по умолчанию часто **8080**, если env не задан — см. `settings/local.cjs`).
 
-**Данные на диске:** `data/app-state.json` и каталог **`data/fabric-hub/`** (FS хаба, peers и т.д.). Корень: **`DATA_DIR`**. Рабочие данные в git не коммитить (см. `.gitignore`).
+**Данные на диске:** канонический документ хранится в **`data/fabric-family-tasks-store/`** (LevelDB) и зеркалится в `data/app-state.json`; служебные данные Hub лежат в **`data/fabric-hub/`** (FS, peers и т.д.). Корень: **`DATA_DIR`**. Рабочие данные в git не коммитить (см. `.gitignore`).
 
 **Превью без бэкенда:** `npm run preview` — только статика, **сохранение не работает**; полный цикл — `npm run dev` или `npm start`.
 
@@ -123,12 +123,19 @@ npm start
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/api/state` | Load full JSON. **404** if missing; client seeds from `seed.ts` and `PUT`s. |
+| `GET` | `/api/state` | Load full JSON document (server bootstraps defaults/migrations on startup, so route returns a document). |
 | `PUT` | `/api/state` | Body: `{ tasks, shopping, petCompletions, … }` — see `PersistedState` in `src/storage.ts`. |
 | `GET` | `/api/store?path=/` | JSON Pointer read (RFC 6901); default path `/` is the full document. |
 | `PUT` | `/api/store` | Pointer write; `path` `/` replaces document (validated + migrated). |
 
 Optional: `HUB_STOCK_UI=1` serves the stock Hub shell at `/` instead of Family Tasks. For local dev, `FABRIC_BITCOIN_ENABLE=false` is recommended (`server/api.mjs`).
+
+Additional Fabric routes from `server/api.mjs`:
+
+- `GET /api/fabric/node-key` — node public key metadata.
+- `POST /api/fabric/issue-owner-token` — signs a Family owner envelope for a valid owner user id.
+- `GET /api/price/btc` — BTC/USD quote helper route.
+- `POST /api/public-faucet` — forwards faucet requests to public Hub (`FABRIC_PUBLIC_HUB_ORIGIN`).
 
 **Client** (`src/hooks/usePersistedApp.ts`, `src/api/persistClient.ts`):
 
@@ -140,12 +147,19 @@ Optional: `HUB_STOCK_UI=1` serves the stock Hub shell at `/` instead of Family T
 
 | Метод | Путь | Назначение |
 |--------|------|------------|
-| `GET` | `/api/state` | Загрузка JSON. **404** — файла ещё нет; клиент берёт сид из `seed.ts` и пишет через `PUT`. |
+| `GET` | `/api/state` | Загрузка полного JSON-документа (сервер на старте применяет дефолт/миграции, поэтому маршрут возвращает документ). |
 | `PUT` | `/api/state` | Тело: `{ tasks, shopping, petCompletions, … }` — см. `PersistedState` в `src/storage.ts`. |
 | `GET` | `/api/store?path=/` | Чтение по JSON Pointer (RFC 6901); путь по умолчанию `/` — весь документ. |
 | `PUT` | `/api/store` | Запись по pointer; `path` `/` — замена документа (валидация + миграция). |
 
 Опционально: `HUB_STOCK_UI=1` — стандартная оболочка Hub на `/` вместо Family Tasks. Для локальной разработки рекомендуется `FABRIC_BITCOIN_ENABLE=false` (`server/api.mjs`).
+
+Дополнительные Fabric-маршруты из `server/api.mjs`:
+
+- `GET /api/fabric/node-key` — метаданные публичного ключа ноды.
+- `POST /api/fabric/issue-owner-token` — подпись owner-envelope для корректного `userId` владельца.
+- `GET /api/price/btc` — вспомогательный маршрут котировки BTC/USD.
+- `POST /api/public-faucet` — проксирование запроса к публичному Hub (`FABRIC_PUBLIC_HUB_ORIGIN`).
 
 **Клиент** (`src/hooks/usePersistedApp.ts`, `src/api/persistClient.ts`):
 
@@ -186,7 +200,9 @@ Optional: `HUB_STOCK_UI=1` serves the stock Hub shell at `/` instead of Family T
 ```
 server/api.mjs          — Hub + Family Tasks routes + static in production
 server/FamilyTasksFabricStore.mjs, fabricPointerStore.mjs, …
-data/                   — app-state.json, fabric-hub/ (not in git)
+data/                   — app-state.json + fabric-family-tasks-store/ + fabric-hub/ (not in git)
+stores/bitcoin-regtest/ — local regtest chain data when Bitcoin mode is enabled (not in git)
+tools/chain-bin/        — optional local bitcoind / bitcoin-cli install target
 src/
   main.tsx, App.tsx, App.css
   types.ts, constants.ts, seed.ts, storage.ts, paths.ts
@@ -205,7 +221,9 @@ Changing `PersistedState` requires load migration, API contract updates, or a co
 ```
 server/api.mjs          — Hub + маршруты Family Tasks + static в production
 server/FamilyTasksFabricStore.mjs, fabricPointerStore.mjs, …
-data/                   — app-state.json, fabric-hub/ (не в git)
+data/                   — app-state.json + fabric-family-tasks-store/ + fabric-hub/ (не в git)
+stores/bitcoin-regtest/ — локальные данные regtest при включенном Bitcoin-режиме (не в git)
+tools/chain-bin/        — опциональная локальная установка bitcoind / bitcoin-cli
 src/
   main.tsx, App.tsx, App.css
   types.ts, constants.ts, seed.ts, storage.ts, paths.ts
@@ -250,6 +268,10 @@ src/
 | `npm start` | Production: Hub + `dist/` |
 | `npm run preview` | Front-end from `dist/` only, no API |
 | `npm run build:psite` | Build with psite `base` + sync script |
+| `npm run install:bitcoin-lightning` | Install local Bitcoin Core binaries (`--skip-lightning` by default on this script command) |
+| `npm test` | Build + API/integration test suite (`tests/*.test.cjs`) |
+| `npm run test:ui` | Build + browser UI smoke/integration test |
+| `npm run test:wallet` | Wallet/Bitcoin HTTP flow tests |
 
 **Русский**
 
@@ -260,3 +282,7 @@ src/
 | `npm start` | Production: Hub + раздача `dist/` |
 | `npm run preview` | Только фронт из `dist/`, без API |
 | `npm run build:psite` | Сборка с `base` для psite + sync-скрипт |
+| `npm run install:bitcoin-lightning` | Локальная установка бинарников Bitcoin Core (в этом npm-скрипте используется `--skip-lightning`) |
+| `npm test` | Сборка + основной набор API/integration тестов (`tests/*.test.cjs`) |
+| `npm run test:ui` | Сборка + браузерный UI smoke/integration тест |
+| `npm run test:wallet` | Тесты wallet/Bitcoin HTTP-потока |

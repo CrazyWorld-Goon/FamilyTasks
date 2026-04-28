@@ -16,6 +16,8 @@ export function OwnerAdminPanel({
   displayName,
   fabricTasksPublic,
   onFabricTasksPublicChange,
+  bitcoinFeaturesEnabled,
+  onBitcoinFeaturesChange,
   onGoToNetwork,
   paymentProposals,
   members,
@@ -30,6 +32,8 @@ export function OwnerAdminPanel({
   displayName?: string;
   fabricTasksPublic: boolean;
   onFabricTasksPublicChange: (next: boolean) => void;
+  bitcoinFeaturesEnabled: boolean;
+  onBitcoinFeaturesChange: (next: boolean) => void;
   onGoToNetwork: () => void;
   paymentProposals: PaymentProposal[];
   members: FamilyMember[];
@@ -97,6 +101,15 @@ export function OwnerAdminPanel({
             <span>{t("network.publicLabel")}</span>
           </label>
           <p className="section-hint owner-admin-subhint">{t("network.publicHint")}</p>
+          <label className="owner-admin-checkbox fabric-public-label">
+            <input
+              type="checkbox"
+              checked={bitcoinFeaturesEnabled}
+              onChange={(e) => onBitcoinFeaturesChange(e.target.checked)}
+            />
+            <span>{t("adminPanel.bitcoinFeaturesLabel")}</span>
+          </label>
+          <p className="section-hint owner-admin-subhint">{t("adminPanel.bitcoinFeaturesHint")}</p>
           <button
             type="button"
             className="btn btn-secondary owner-admin-action"

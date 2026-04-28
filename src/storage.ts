@@ -57,6 +57,10 @@ function parseFamily(raw: unknown): FamilyState | null | undefined {
     if (typeof f.fabricTasksPublic !== "boolean") return null;
     out.fabricTasksPublic = f.fabricTasksPublic;
   }
+  if (f.bitcoinFeatures !== undefined) {
+    if (typeof f.bitcoinFeatures !== "boolean") return null;
+    out.bitcoinFeatures = f.bitcoinFeatures;
+  }
   return out;
 }
 

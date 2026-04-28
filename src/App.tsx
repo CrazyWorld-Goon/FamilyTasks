@@ -45,6 +45,10 @@ function isMemberId(tab: TabId): tab is MemberId {
   return tab !== "all" && tab !== "family" && tab !== "network" && tab !== "shop" && !isPeerViewTab(tab);
 }
 
+function isHiddenSecretTab(tab: TabId): boolean {
+  return tab === "family" || tab === "network" || isPeerViewTab(tab);
+}
+
 type Row =
   | { kind: "task"; task: Task }
   | { kind: "pet"; pet: VirtualPetTask }
@@ -144,6 +148,7 @@ export default function App() {
     dismissSaveError,
     members,
     addMember,
+    updateMember,
     removeMember,
     setTaskStatus,
     markShoppingBought,
@@ -191,13 +196,15 @@ export default function App() {
       return fallback;
     }
     if (!raw) return fallback;
-    if (raw === "all" || raw === "shop" || raw === "network" || raw === "family") return raw;
+    if (raw === "all" || raw === "shop") return raw;
+    if (raw === "network" || raw === "family") return fallback;
     if (typeof raw === "string" && raw.startsWith("network-peer:") && decodePeerViewTab(raw)) return raw as TabId;
     if (DEFAULT_MEMBERS.some((m) => m.id === raw)) return raw as TabId;
     return fallback;
   });
   const [taskBoardOpen, setTaskBoardOpen] = useState(false);
   const [adminPanelOpen, setAdminPanelOpen] = useState(false);
+  const [secretTabsUnlocked, setSecretTabsUnlocked] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [shopDraft, setShopDraft] = useState("");
   const [shopBudgetDraft, setShopBudgetDraft] = useState("");
@@ -214,6 +221,7 @@ export default function App() {
   const [payoutDialog, setPayoutDialog] = useState<PayoutDialogState>(null);
   const knownTaskIdsRef = useRef<Set<string> | null>(null);
   const flashTimeoutsRef = useRef<number[]>([]);
+  const btcTapCountRef = useRef(0);
 
   useEffect(() => {
     const baseTitle = translate(MESSAGES[locale], "meta.title");
@@ -238,6 +246,12 @@ export default function App() {
       // localStorage может быть недоступен (privacy mode); вкладка тогда просто не персистится.
     }
   }, [tab]);
+
+  useEffect(() => {
+    if (secretTabsUnlocked !== true && isHiddenSecretTab(tab)) {
+      setTab("all");
+    }
+  }, [secretTabsUnlocked, tab]);
 
   useEffect(() => {
     if (!ready || !state) return;
@@ -322,6 +336,13 @@ export default function App() {
   const onSaveFamilyProfile = useCallback(
     (next: { displayName: string; description: string }) => {
       setFamilyProfile({ displayName: next.displayName, description: next.description });
+      showToast(t("familyManage.toastSaved"));
+    },
+    [setFamilyProfile, showToast, t],
+  );
+  const onSetBitcoinFeatures = useCallback(
+    (next: boolean) => {
+      setFamilyProfile({ bitcoinFeatures: next });
       showToast(t("familyManage.toastSaved"));
     },
     [setFamilyProfile, showToast, t],
@@ -421,6 +442,23 @@ export default function App() {
   const openPayoutForMember = useCallback((memberId: MemberId) => {
     setPayoutDialog({ fromMemberId: memberId, hint: t("payout.contextMember") });
   }, [t]);
+
+  const onBtcSpotTap = useCallback(() => {
+    if (secretTabsUnlocked) return;
+    btcTapCountRef.current += 1;
+    if (btcTapCountRef.current >= 3) {
+      setSecretTabsUnlocked(true);
+      btcTapCountRef.current = 0;
+    }
+  }, [secretTabsUnlocked]);
+  const onBtcSpotTapKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLSpanElement>) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      onBtcSpotTap();
+    },
+    [onBtcSpotTap],
+  );
 
   const onConfirmPayout = useCallback(
     (input: {
@@ -531,8 +569,13 @@ export default function App() {
   const shoppingOrdered = sortShoppingForDisplay(state.shopping);
   const repurchase = getRepurchaseCandidates(state.shopping);
   const canAccessNetwork = hasOwnerAdminTokenForUser(ownerUserId);
+  const bitcoinFeaturesEnabled = state.family?.bitcoinFeatures !== false;
+  const areSecretTabsUnlocked = secretTabsUnlocked === true;
   const effectiveTab: TabId =
-    (tab === "network" || isPeerViewTab(tab)) && !canAccessNetwork ? "all" : tab;
+    ((tab === "network" || isPeerViewTab(tab)) && (!canAccessNetwork || !areSecretTabsUnlocked)) ||
+    (tab === "family" && !areSecretTabsUnlocked)
+      ? "all"
+      : tab;
   const ownerMember = ownerUserId ? members.find((m) => m.id === ownerUserId) : undefined;
   const activeMember = isMemberId(effectiveTab) ? effectiveTab : null;
   const paymentProposals = state.paymentProposals ?? [];
@@ -606,13 +649,13 @@ export default function App() {
   const submitShop = (e: React.FormEvent) => {
     e.preventDefault();
     if (!shopDraft.trim()) return;
-    const raw = shopBudgetDraft.trim();
+    const raw = bitcoinFeaturesEnabled ? shopBudgetDraft.trim() : "";
     let opts: { budgetSats?: number } | undefined;
     if (raw) {
       const n = Number(raw);
       if (Number.isFinite(n) && Math.floor(n) > 0) opts = { budgetSats: Math.floor(n) };
     }
-    addShopping(shopDraft, shopAssignee, opts);
+    addShopping(shopDraft, shopAssignee, bitcoinFeaturesEnabled ? opts : undefined);
     setShopDraft("");
     setShopBudgetDraft("");
     showToast(t("toasts.shopAdded"));
@@ -670,15 +713,24 @@ export default function App() {
         </div>
         <div className="header-actions">
           <div className="header-actions-row header-actions-row--top">
-            <HeaderBtcSpot
-              fiatSpotLabel={(amount) => t("wallet.fiatSpotRate", { amount })}
-              loadingLabel={t("header.btcSpotLoading")}
-            />
+            <span
+              className="header-btc-ticker-tap-target"
+              role="button"
+              tabIndex={0}
+              onClick={onBtcSpotTap}
+              onKeyDown={onBtcSpotTapKeyDown}
+              aria-label="BTC spot"
+            >
+              <HeaderBtcSpot
+                fiatSpotLabel={(amount) => t("wallet.fiatSpotRate", { amount })}
+                loadingLabel={t("header.btcSpotLoading")}
+              />
+            </span>
             <label className="lang-picker">
               <span className="visually-hidden">{t("lang.label")}</span>
               <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)} aria-label={t("lang.label")}>
-                <option value="en">{t("lang.en")}</option>
-                <option value="ru">{t("lang.ru")}</option>
+                <option value="en">EN</option>
+                <option value="ru">RU</option>
               </select>
             </label>
           </div>
@@ -708,19 +760,21 @@ export default function App() {
             <IconUsers size={16} className="tab-icon" />
             {t("tabs.all")}
           </button>
-          <button
-            type="button"
-            className="tab tab-family"
-            role="tab"
-            aria-selected={effectiveTab === "family"}
-            onClick={() => setTab("family")}
-            title={t("tabs.familyTitle")}
-            style={{ borderColor: effectiveTab === "family" ? "var(--accent-2)" : undefined }}
-          >
-            <IconHouse size={16} className="tab-icon" />
-            {t("tabs.family")}
-          </button>
-          {canAccessNetwork ? (
+          {areSecretTabsUnlocked ? (
+            <button
+              type="button"
+              className="tab tab-family"
+              role="tab"
+              aria-selected={effectiveTab === "family"}
+              onClick={() => setTab("family")}
+              title={t("tabs.familyTitle")}
+              style={{ borderColor: effectiveTab === "family" ? "var(--accent-2)" : undefined }}
+            >
+              <IconHouse size={16} className="tab-icon" />
+              {t("tabs.family")}
+            </button>
+          ) : null}
+          {areSecretTabsUnlocked ? (
             <button
               type="button"
               className="tab tab-network"
@@ -833,6 +887,7 @@ export default function App() {
           members={members}
           onSaveProfile={onSaveFamilyProfile}
           onAddMember={addMember}
+          onUpdateMember={updateMember}
           onRemoveMember={removeMember}
           paymentProposals={paymentProposals}
           ownerUserId={ownerUserId}
@@ -896,8 +951,8 @@ export default function App() {
                   viewerMember={undefined}
                   asOf={now}
                   ownerUserId={ownerUserId}
-                  patchShoppingBudget={patchShoppingBudget}
-                  onRequestPayoutShop={openPayoutForShop}
+                  patchShoppingBudget={bitcoinFeaturesEnabled ? patchShoppingBudget : undefined}
+                  onRequestPayoutShop={bitcoinFeaturesEnabled ? openPayoutForShop : undefined}
                   onSetTaskNotes={setTaskNotes}
                   onDoneTask={onDoneTask}
                   onDonePet={onDonePet}
@@ -908,6 +963,7 @@ export default function App() {
                   onRequestAssignees={onRequestTaskAssignees}
                   onRequestUndoShopping={onRequestUndoShopping}
                   onRemoveShop={onRemoveShop}
+                  bitcoinFeaturesEnabled={bitcoinFeaturesEnabled}
                 />
               ))
             )}
@@ -972,14 +1028,16 @@ export default function App() {
                   placeholder={t("shopTab.placeholderNewItem")}
                   aria-label={t("shopTab.ariaNewItem")}
                 />
-                <input
-                  inputMode="numeric"
-                  className="shop-budget-input"
-                  value={shopBudgetDraft}
-                  onChange={(e) => setShopBudgetDraft(e.target.value)}
-                  placeholder={t("shopTab.budgetPlaceholder")}
-                  aria-label={t("shopTab.budgetAria")}
-                />
+                {bitcoinFeaturesEnabled ? (
+                  <input
+                    inputMode="numeric"
+                    className="shop-budget-input"
+                    value={shopBudgetDraft}
+                    onChange={(e) => setShopBudgetDraft(e.target.value)}
+                    placeholder={t("shopTab.budgetPlaceholder")}
+                    aria-label={t("shopTab.budgetAria")}
+                  />
+                ) : null}
                 <select value={shopAssignee} onChange={(e) => setShopAssignee(e.target.value as MemberId)} aria-label={t("shopTab.ariaAssigneeToTasks")}>
                   {members.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -1017,6 +1075,7 @@ export default function App() {
           ownerUserId={ownerUserId}
           patchShoppingBudget={patchShoppingBudget}
           onRequestPayoutShop={openPayoutForShop}
+          bitcoinFeaturesEnabled={bitcoinFeaturesEnabled}
           onRequestPayoutMember={openPayoutForMember}
           taskDraft={taskDraft}
           setTaskDraft={setTaskDraft}
@@ -1185,9 +1244,9 @@ export default function App() {
             {requestAssignees.error ? <p className="task-manage-error">{requestAssignees.error}</p> : null}
             <div className="confirm-actions">
               <button type="button" className="btn btn-cancel-done" onClick={saveRequestedAssignees}>
-                {t("taskRequest.save")}
+                {t("taskRequest.ask")}
               </button>
-              <button type="button" className="btn btn-keep-done" onClick={() => setRequestAssignees(null)}>
+              <button type="button" className="btn btn-ghost" onClick={() => setRequestAssignees(null)}>
                 {t("taskRequest.cancel")}
               </button>
             </div>
@@ -1217,6 +1276,8 @@ export default function App() {
           displayName={state.family?.displayName}
           fabricTasksPublic={Boolean(state.family?.fabricTasksPublic)}
           onFabricTasksPublicChange={setFabricTasksPublic}
+          bitcoinFeaturesEnabled={bitcoinFeaturesEnabled}
+          onBitcoinFeaturesChange={onSetBitcoinFeatures}
           onGoToNetwork={() => setTab("network")}
           paymentProposals={paymentProposals}
           members={members}
@@ -1308,6 +1369,7 @@ function PersonSection({
   ownerUserId,
   patchShoppingBudget,
   onRequestPayoutShop,
+  bitcoinFeaturesEnabled,
   onRequestPayoutMember,
   taskDraft,
   setTaskDraft,
@@ -1341,8 +1403,9 @@ function PersonSection({
   onRequestUndoShopping: (s: ShoppingItem) => void;
   onRemoveShop: (s: ShoppingItem) => void;
   ownerUserId?: MemberId;
-  patchShoppingBudget: (id: string, sats: number) => void;
+  patchShoppingBudget?: (id: string, sats: number) => void;
   onRequestPayoutShop: (item: ShoppingItem) => void;
+  bitcoinFeaturesEnabled: boolean;
   onRequestPayoutMember: (memberId: MemberId) => void;
   taskDraft: string;
   setTaskDraft: (s: string) => void;
@@ -1373,7 +1436,7 @@ function PersonSection({
         <p className="section-hint">
           {t("personView.personalHint")} <strong>{t(`phase.${phase}`)}</strong>
         </p>
-        {ownerUserId && m.id !== ownerUserId ? (
+        {bitcoinFeaturesEnabled && ownerUserId && m.id !== ownerUserId ? (
           <p className="person-payout-actions">
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => onRequestPayoutMember(m.id)}>
               {t("payout.requestFromOrganizer")}
@@ -1418,8 +1481,9 @@ function PersonSection({
               onRequestUndoShopping={onRequestUndoShopping}
               onRemoveShop={onRemoveShop}
               ownerUserId={ownerUserId}
-              patchShoppingBudget={patchShoppingBudget}
-              onRequestPayoutShop={onRequestPayoutShop}
+              patchShoppingBudget={bitcoinFeaturesEnabled ? patchShoppingBudget : undefined}
+              onRequestPayoutShop={bitcoinFeaturesEnabled ? onRequestPayoutShop : undefined}
+              bitcoinFeaturesEnabled={bitcoinFeaturesEnabled}
             />
           ))
         )}
@@ -1459,8 +1523,9 @@ function PersonSection({
               onRequestUndoShopping={onRequestUndoShopping}
               onRemoveShop={onRemoveShop}
               ownerUserId={ownerUserId}
-              patchShoppingBudget={patchShoppingBudget}
-              onRequestPayoutShop={onRequestPayoutShop}
+              patchShoppingBudget={bitcoinFeaturesEnabled ? patchShoppingBudget : undefined}
+              onRequestPayoutShop={bitcoinFeaturesEnabled ? onRequestPayoutShop : undefined}
+              bitcoinFeaturesEnabled={bitcoinFeaturesEnabled}
             />
           ))
         )}
@@ -1473,26 +1538,33 @@ function PersonSection({
         <form className="forms" onSubmit={onSubmitTask}>
           <div className="input-row">
             <input value={taskDraft} onChange={(e) => setTaskDraft(e.target.value)} placeholder={t("personView.quickTaskPlaceholder")} />
-            <select value={taskScheduleMode} onChange={(e) => setTaskScheduleMode(e.target.value as "slot" | "time")}>
-              <option value="slot">{t("tasksManage.whenTypeSlot")}</option>
-              <option value="time">{t("tasksManage.whenTypeTime")}</option>
+            <select
+              value={taskScheduleMode === "time" ? "exact-time" : taskSlot}
+              onChange={(e) => {
+                const selected = e.target.value;
+                if (selected === "exact-time") {
+                  setTaskScheduleMode("time");
+                  return;
+                }
+                setTaskScheduleMode("slot");
+                setTaskSlot(selected as TimeSlot);
+              }}
+            >
+              <option value="morning">{t("slots.morning")}</option>
+              <option value="day">{t("slots.day")}</option>
+              <option value="evening">{t("slots.evening")}</option>
+              <option value="night">{t("slots.night")}</option>
+              <option value="any">{t("slots.any")}</option>
+              <option value="exact-time">{t("tasksManage.slotExactTimeOption")}</option>
             </select>
-            {taskScheduleMode === "slot" ? (
-              <select value={taskSlot} onChange={(e) => setTaskSlot(e.target.value as TimeSlot)}>
-                <option value="morning">{t("slots.morning")}</option>
-                <option value="day">{t("slots.day")}</option>
-                <option value="evening">{t("slots.evening")}</option>
-                <option value="night">{t("slots.night")}</option>
-                <option value="any">{t("slots.any")}</option>
-              </select>
-            ) : (
+            {taskScheduleMode === "time" ? (
               <input
                 type="time"
                 value={taskPlannedTime}
                 onChange={(e) => setTaskPlannedTime(e.target.value)}
                 aria-label={t("personView.quickTaskTimeAria")}
               />
-            )}
+            ) : null}
             <button type="submit" className="btn btn-primary">
               {t("personView.quickTaskSubmit")}
             </button>
@@ -1666,6 +1738,7 @@ function RowView({
   ownerUserId,
   patchShoppingBudget,
   onRequestPayoutShop,
+  bitcoinFeaturesEnabled = true,
 }: {
   row: Row;
   members: FamilyMember[];
@@ -1688,6 +1761,7 @@ function RowView({
   ownerUserId?: MemberId;
   patchShoppingBudget?: (id: string, sats: number) => void;
   onRequestPayoutShop?: (item: ShoppingItem) => void;
+  bitcoinFeaturesEnabled?: boolean;
 }) {
   const { t } = useI18n();
   if (row.kind === "shop") {
@@ -1695,7 +1769,7 @@ function RowView({
     const isBought = item.status === "bought";
     const who = members.find((m) => m.id === item.assignee);
     const showPayoutBtn =
-      Boolean(onRequestPayoutShop) && !isBought && (!ownerUserId || item.assignee !== ownerUserId);
+      Boolean(onRequestPayoutShop) && Boolean(bitcoinFeaturesEnabled) && !isBought && (!ownerUserId || item.assignee !== ownerUserId);
     return (
       <div className={isBought ? "row row--shop-bought" : "row row--shop-open"}>
         <div className="row-shop-body">
@@ -1713,10 +1787,10 @@ function RowView({
               t("shopRow.familyFallback")
             )}
           </div>
-          {item.budgetSats != null && item.budgetSats > 0 ? (
+          {bitcoinFeaturesEnabled && item.budgetSats != null && item.budgetSats > 0 ? (
             <div className="shop-budget-badge">{t("shopRow.budgetSet", { n: item.budgetSats })}</div>
           ) : null}
-          {!isBought && patchShoppingBudget ? (
+          {bitcoinFeaturesEnabled && !isBought && patchShoppingBudget ? (
             <FundShoppingInline item={item} onPatchBudget={patchShoppingBudget} />
           ) : null}
           {showPayoutBtn ? (

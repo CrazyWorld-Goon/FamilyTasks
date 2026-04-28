@@ -115,6 +115,8 @@ export interface FamilyState {
    * Only the primary organizer should change this; stored with persisted family state.
    */
   fabricTasksPublic?: boolean;
+  /** Toggles Bitcoin-specific shopping features (budgeting, funding, payout requests). */
+  bitcoinFeatures?: boolean;
 }
 
 export interface AppState {

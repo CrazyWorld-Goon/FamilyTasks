@@ -36,6 +36,7 @@
     "displayNamePlaceholder": "напр. Семья Ивановых",
     "descriptionLabel": "Описание",
     "descriptionPlaceholder": "Правила, напоминания или короткая заметка на экране…",
+    "bitcoinFeatures": "Bitcoin Features",
     "saveProfile": "Сохранить сведения о доме",
     "toastSaved": "Сведения о доме сохранены"
   },
@@ -81,6 +82,8 @@
     "organizer": "Вы:",
     "networkHeading": "Сеть Fabric",
     "networkHint": "Обмен задачами с другими домами — только при включении ниже и отметке отдельных задач.",
+    "bitcoinFeaturesLabel": "Bitcoin Features",
+    "bitcoinFeaturesHint": "Включает биткойн-функции во вкладке «Купить»: бюджет, пополнение через Bitcoin и запрос выплат. Если выключено — эти элементы скрыты.",
     "openNetwork": "Открыть вкладку «Сеть»",
     "securityHeading": "Резерв токена",
     "securityHint": "Скачать ещё одну копию подписанного токена (как при первой настройке).",
@@ -188,8 +191,15 @@
     "role": "Роль / подпись",
     "color": "Цвет вкладки",
     "add": "Добавить",
+    "edit": "Редактировать",
+    "editTitle": "Редактировать участника",
+    "saveEdit": "Сохранить",
+    "cancelEdit": "Отмена",
     "remove": "Удалить",
-    "cannotRemoveLast": "Нужен хотя бы один человек"
+    "cannotRemoveLast": "Нужен хотя бы один человек",
+    "removeConfirmTitle": "Удалить участника?",
+    "removeConfirmBody": "Удалить участника «{{name}}»? Его задачи и покупки будут переназначены на первого в списке.",
+    "removeConfirmKeep": "Оставить"
   },
   "tabs": {
     "ariaSections": "Разделы",
@@ -434,6 +444,7 @@
     "selectAll": "Выбрать всех",
     "clearAll": "Снять всех",
     "validationAssigneeRequired": "Выберите хотя бы одного исполнителя.",
+    "ask": "Попросить",
     "save": "Сохранить",
     "cancel": "Отмена"
   },

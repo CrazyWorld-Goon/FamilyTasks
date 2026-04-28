@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "network": "regtest",
+  "xprv": "tprv8ZgxMBicQKsPdWJEVPRnKpWCLxJwtv6CJg53kr8rXBrtPWAqwCZn2GqbnpXPefUGWPS2qJ5oNAP9DCw9qwJqxbUtwWy3VcYJd84g94Fu36M",
+  "xpub": "tpubD6NzVbkrYhZ4WyL2P36NjEAJuypt4FH6syfq3NB9wTfHDzRcZbPNCmTTxyPDuuYZw7YujkPcxxKJXbnjbFD7vWr2tuDeUuCCDvdQ6KVZmGV",
+  "publicKeyHex": "037f1736d458f441867d60fdadd310c1bec4b512dcabe456f40e74f44684e9ca46",
+  "createdAt": "2026-04-28T17:35:15.916Z",
+  "label": "FamilyTasks node master (BIP32 root; keep this file private)"
+}

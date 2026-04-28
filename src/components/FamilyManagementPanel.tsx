@@ -16,6 +16,7 @@ export function FamilyManagementPanel({
   members,
   onSaveProfile,
   onAddMember,
+  onUpdateMember,
   onRemoveMember,
   paymentProposals,
   ownerUserId,
@@ -28,6 +29,7 @@ export function FamilyManagementPanel({
   members: FamilyMember[];
   onSaveProfile: (next: { displayName: string; description: string }) => void;
   onAddMember: (input: Omit<FamilyMember, "id"> & { id?: string }) => void;
+  onUpdateMember: (id: string, patch: { shortName: string; fullName: string; role: string; color: string }) => void;
   onRemoveMember: (id: string) => void;
   paymentProposals: PaymentProposal[];
   ownerUserId?: FabricActorId;
@@ -97,7 +99,7 @@ export function FamilyManagementPanel({
         onReject={onRejectProposal}
       />
 
-      <FamilyMembersPanel members={members} onAdd={onAddMember} onRemove={onRemoveMember} />
+      <FamilyMembersPanel members={members} onAdd={onAddMember} onUpdate={onUpdateMember} onRemove={onRemoveMember} />
 
       <BitcoinToolsCard />
 

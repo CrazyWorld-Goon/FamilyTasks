@@ -1,0 +1,14 @@
+2026/04/29-00:30:08.263 44f4 Recovering log #77
+2026/04/29-00:30:08.263 44f4 Level-0 table #79: started
+2026/04/29-00:30:08.275 44f4 Level-0 table #79: 616 bytes OK
+2026/04/29-00:30:08.286 44f4 Delete type=0 #77
+2026/04/29-00:30:08.286 44f4 Delete type=3 #75
+2026/04/29-00:30:08.286 1eec Compacting 4@0 + 1@1 files
+2026/04/29-00:30:08.290 1eec Generated table #81@0: 1 keys, 479 bytes
+2026/04/29-00:30:08.290 1eec Compacted 4@0 + 1@1 files => 479 bytes
+2026/04/29-00:30:08.294 1eec compacted to: files[ 0 1 0 0 0 0 0 ]
+2026/04/29-00:30:08.294 1eec Delete type=2 #68
+2026/04/29-00:30:08.294 1eec Delete type=2 #70
+2026/04/29-00:30:08.294 1eec Delete type=2 #73
+2026/04/29-00:30:08.294 1eec Delete type=2 #76
+2026/04/29-00:30:08.294 1eec Delete type=2 #79

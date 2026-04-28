@@ -10,7 +10,7 @@
     "dev": "node scripts/dev-runner.mjs",
     "preview": "vite preview",
     "install:puppeteer-chrome": "puppeteer browsers install chrome",
-    "install:bitcoin-lightning": "node scripts/installBitcoinLightning.mjs",
+    "install:bitcoin-lightning": "node scripts/installBitcoinLightning.mjs --skip-lightning",
     "report:install": "rm -rf node_modules && echo \"\n\" > package-lock.json && echo \"$ npm i\" > reports/install.log && npm i >> reports/install.log",
     "start": "cross-env NODE_ENV=production node server/api.mjs",
     "test": "npm run build && mocha \"tests/*.test.cjs\" --exit --timeout 180000",

@@ -101,6 +101,7 @@ export function TasksManageDialog({
   const [editingPermanentId, setEditingPermanentId] = useState<string | null>(null);
   const [editingPermanent, setEditingPermanent] = useState<PermanentPayload | null>(null);
   const [permanentSubmitAttempted, setPermanentSubmitAttempted] = useState(false);
+  const [deleteConfirmTask, setDeleteConfirmTask] = useState<Task | null>(null);
 
   const slotOptions = useMemo(
     () =>
@@ -231,13 +232,21 @@ export function TasksManageDialog({
 
   const tryDelete = useCallback(
     (task: Task) => {
-      if (window.confirm(t("tasksManage.deleteConfirm", { title: task.title }))) {
-        onDelete(task.id);
-        if (editingId === task.id) cancelEdit();
-      }
+      setDeleteConfirmTask(task);
     },
-    [onDelete, editingId, cancelEdit, t],
+    [],
   );
+
+  const confirmDelete = useCallback(() => {
+    if (!deleteConfirmTask) return;
+    onDelete(deleteConfirmTask.id);
+    if (editingId === deleteConfirmTask.id) cancelEdit();
+    if (editingPermanentId === deleteConfirmTask.id) {
+      setEditingPermanentId(null);
+      setEditingPermanent(null);
+    }
+    setDeleteConfirmTask(null);
+  }, [deleteConfirmTask, onDelete, editingId, cancelEdit, editingPermanentId]);
 
   useEffect(() => {
     if (!open) {
@@ -247,6 +256,7 @@ export function TasksManageDialog({
       setEditingPermanentId(null);
       setEditingPermanent(null);
       setPermanentSubmitAttempted(false);
+      setDeleteConfirmTask(null);
     }
   }, [open]);
 
@@ -282,6 +292,10 @@ export function TasksManageDialog({
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      if (deleteConfirmTask) {
+        setDeleteConfirmTask(null);
+        return;
+      }
       if (editingId) {
         setEditingId(null);
         setForm(null);
@@ -296,7 +310,7 @@ export function TasksManageDialog({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, editingId, editingPermanentId]);
+  }, [open, onClose, editingId, editingPermanentId, deleteConfirmTask]);
 
   if (!open) return null;
 
@@ -823,6 +837,29 @@ export function TasksManageDialog({
             {t("tasksManage.doneButton")}
           </button>
         </div>
+
+        {deleteConfirmTask ? (
+          <div className="confirm-backdrop" role="presentation" onClick={() => setDeleteConfirmTask(null)}>
+            <div
+              className="confirm-dialog card"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("tasksManage.deleteTitle")}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3>{t("tasksManage.deleteTitle")}</h3>
+              <p className="section-hint">{t("tasksManage.deleteConfirm", { title: deleteConfirmTask.title })}</p>
+              <div className="confirm-actions">
+                <button type="button" className="btn btn-cancel-done" onClick={confirmDelete}>
+                  {t("tasksManage.deleteTitle")}
+                </button>
+                <button type="button" className="btn btn-keep-done" onClick={() => setDeleteConfirmTask(null)}>
+                  {t("tasksManage.cancel")}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

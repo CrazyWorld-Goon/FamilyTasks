@@ -19,6 +19,7 @@
 import fs from "fs";
 import path from "path";
 import process from "process";
+import { spawnSync } from "child_process";
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import { loadFamilySettingsLocal } from "../scripts/familySettings.mjs";
@@ -54,11 +55,62 @@ const isProd = process.env.NODE_ENV === "production";
 const dist = path.join(root, "dist");
 const dataDir = process.env.DATA_DIR || path.join(root, "data");
 const hubDataRoot = path.join(dataDir, "fabric-hub");
+const localChainBinDir = path.join(root, "tools", "chain-bin", "bin");
+const localBitcoinRegtestDatadir = path.join(root, "stores", "bitcoin-regtest");
 const stateFile = path.join(dataDir, "app-state.json");
 /** Single JSON document: tasks, shopping, petCompletions, users — Fabric-style pointer access via `/api/store`. */
 let fabricStore;
 /** @type {Record<string, unknown>} */
 let stateDoc;
+
+function ensureLocalBitcoinBinariesOnPath() {
+  if (!fs.existsSync(localChainBinDir)) return;
+  const delimiter = process.platform === "win32" ? ";" : ":";
+  const currentPath = process.env.PATH || "";
+  const parts = currentPath.split(delimiter).filter(Boolean);
+  const alreadyPresent = parts.some((entry) => path.resolve(entry) === path.resolve(localChainBinDir));
+  if (!alreadyPresent) {
+    process.env.PATH = `${localChainBinDir}${delimiter}${currentPath}`;
+  }
+}
+
+function maybeStopExistingLocalBitcoind() {
+  const bitcoinEnabled = !["0", "false"].includes(String(process.env.FABRIC_BITCOIN_ENABLE || "").toLowerCase());
+  if (!bitcoinEnabled) return;
+
+  const cliName = process.platform === "win32" ? "bitcoin-cli.exe" : "bitcoin-cli";
+  const cliPath = path.join(localChainBinDir, cliName);
+  if (!fs.existsSync(cliPath)) return;
+
+  // Best-effort shutdown for a stale local regtest daemon that owns the datadir lock.
+  const stop = spawnSync(
+    cliPath,
+    ["-regtest", `-datadir=${localBitcoinRegtestDatadir}`, "stop"],
+    { encoding: "utf8", windowsHide: true },
+  );
+  if (stop.status === 0) {
+    console.log("[family-tasks] Stopped existing local bitcoind instance (regtest) before startup.");
+  }
+}
+
+function maybeRepairLocalBitcoinTxIndex() {
+  const bitcoinEnabled = !["0", "false"].includes(String(process.env.FABRIC_BITCOIN_ENABLE || "").toLowerCase());
+  if (!bitcoinEnabled) return;
+  const autoRepairEnabled = !["0", "false"].includes(String(process.env.FABRIC_BITCOIN_AUTO_REPAIR || "true").toLowerCase());
+  if (!autoRepairEnabled) return;
+
+  // Local regtest txindex can be left inconsistent after abrupt shutdowns or version switches.
+  // It is safe to remove and let bitcoind rebuild it on next start.
+  const txindexDir = path.join(localBitcoinRegtestDatadir, "regtest", "indexes", "txindex");
+  if (!fs.existsSync(txindexDir)) return;
+
+  try {
+    fs.rmSync(txindexDir, { recursive: true, force: true });
+    console.log(`[family-tasks] Repaired local regtest txindex: removed ${txindexDir}`);
+  } catch (error) {
+    console.warn("[family-tasks] Failed to repair local regtest txindex:", error && error.message ? error.message : error);
+  }
+}
 
 async function bootstrapState() {
   fabricStore = new FamilyTasksFabricStore(dataDir);
@@ -113,6 +165,17 @@ function buildHubSettings() {
         process.env.FABRIC_HUB_INTERFACE || mergedBase.http?.interface || hubSettingsLocal.http?.interface || "0.0.0.0",
       port: httpPort,
     },
+    ...(process.platform === "win32"
+      ? {
+          // Core Lightning has no native release binary on Windows in this stack.
+          // Force "external" mode without a socket so Hub skips lightning startup cleanly.
+          lightning: {
+            ...(mergedBase.lightning || {}),
+            managed: false,
+            socketPath: "",
+          },
+        }
+      : {}),
   });
 }
 
@@ -372,6 +435,9 @@ class FamilyTasksHub extends Hub {
 }
 
 async function main() {
+  ensureLocalBitcoinBinariesOnPath();
+  maybeStopExistingLocalBitcoind();
+  maybeRepairLocalBitcoinTxIndex();
   const settings = buildHubSettings();
   if (Object.keys(familySettingsLocal).length > 0) {
     console.log("[family-tasks] Merged ./settings/local.cjs into Hub defaults.");

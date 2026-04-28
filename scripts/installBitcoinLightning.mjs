@@ -167,6 +167,26 @@ function run(cmd, args, opts = {}) {
   return r;
 }
 
+function extractZipOnWindows(archivePath, destDir) {
+  const psCommand =
+    "& { param([string]$zip, [string]$dest) Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force }";
+  const ps = run(
+    "powershell.exe",
+    ["-NoProfile", "-NonInteractive", "-Command", psCommand, archivePath, destDir],
+    { windowsHide: true },
+  );
+  if (ps.status === 0) return;
+
+  // Fallback for environments where PowerShell archive cmdlets are unavailable.
+  const archiveDir = path.dirname(archivePath);
+  const archiveName = path.basename(archivePath);
+  const tar = run("tar", ["-xf", archiveName, "-C", destDir], { cwd: archiveDir });
+  if (tar.status !== 0) {
+    const details = [ps.stderr, ps.stdout, tar.stderr, tar.stdout].filter(Boolean).join("\n");
+    throw new Error(`extract zip: ${details}`);
+  }
+}
+
 function rmrf(p) {
   fs.rmSync(p, { recursive: true, force: true });
 }
@@ -195,8 +215,7 @@ function installBitcoinFromArchive(archivePath, platform, binDir) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "btc-core-"));
   try {
     if (platform === "win32") {
-      const ex = run("tar", ["-xf", archivePath, "-C", tmp]);
-      if (ex.status !== 0) throw new Error(`extract zip: ${ex.stderr || ex.stdout}`);
+      extractZipOnWindows(archivePath, tmp);
     } else {
       const ex = run("tar", ["-xzf", archivePath, "-C", tmp]);
       if (ex.status !== 0) throw new Error(`extract tarball: ${ex.stderr || ex.stdout}`);
