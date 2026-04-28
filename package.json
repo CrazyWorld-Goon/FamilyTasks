@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n api,vite -c blue,magenta \"node server/api.mjs\" \"vite\"",
+    "dev": "node scripts/dev-runner.mjs",
+    "dev:legacy": "concurrently -k -n api,vite -c blue,magenta \"node server/api.mjs\" \"vite\"",
     "start": "cross-env NODE_ENV=production node server/api.mjs",
     "build": "vite build",
     "build:psite": "vite build --base=/dom-i-zadachi/ && node scripts/sync-to-psite.mjs",

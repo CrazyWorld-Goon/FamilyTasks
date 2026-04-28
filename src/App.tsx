@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MEMBERS, MISSED_SLOT_LABEL, PENDING_ACTIVITY_LABEL, PENDING_SHOPPING_LABEL } from "./constants";
 import { IconCart, IconCheck, IconClock, IconCat, IconDog, IconListChecks, IconPlus, IconSkip, IconTrash, IconUsers } from "./components/Icons";
 import { TasksManageDialog } from "./components/TasksManageDialog";
@@ -12,6 +12,13 @@ import { buildVirtualPetTasks, formatPlanTime } from "./logic/pets";
 import { getDayPhase, phaseLabel, phaseTimeRange } from "./logic/time";
 import type { MemberId, ShoppingItem, TabId, Task, TaskStatus, TimeSlot, VirtualPetTask } from "./types";
 
+const ACTIVE_TAB_STORAGE_KEY = "familyTasks.activeTab";
+const NEW_TASK_FLASH_MS = 1800;
+
+function isMemberId(value: string): value is MemberId {
+  return MEMBERS.some((m) => m.id === value);
+}
+
 function dateKey(d = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
@@ -20,6 +27,14 @@ type Row =
   | { kind: "task"; task: Task }
   | { kind: "pet"; pet: VirtualPetTask }
   | { kind: "shop"; item: ShoppingItem };
+
+type DoneConfirmState =
+  | { kind: "task"; id: string; title: string }
+  | { kind: "shop"; id: string; title: string };
+
+type RemoveConfirmState =
+  | { kind: "shop"; id: string; title: string }
+  | { kind: "repurchase"; key: string; title: string };
 
 const LATER_PHASE_ORDER: Record<Exclude<TimeSlot, "any"> | "sleep" | "any", number> = {
   morning: 0,
@@ -104,10 +119,22 @@ export default function App() {
     updateTask,
     deleteTask,
     setPetCompletion,
-    resetDemo,
   } = usePersistedApp();
   const now = useNowTicker(60_000);
-  const [tab, setTab] = useState<TabId>("all");
+  const [tab, setTab] = useState<TabId>(() => {
+    const fallback: TabId = "all";
+    if (typeof window === "undefined") return fallback;
+    let raw: string | null = null;
+    try {
+      raw = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+    } catch {
+      return fallback;
+    }
+    if (!raw) return fallback;
+    if (raw === "all" || raw === "shop") return raw;
+    if (isMemberId(raw)) return raw;
+    return fallback;
+  });
   const [taskBoardOpen, setTaskBoardOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [shopDraft, setShopDraft] = useState("");
@@ -115,6 +142,61 @@ export default function App() {
   const [taskDraft, setTaskDraft] = useState("");
   const [taskSlot, setTaskSlot] = useState<TimeSlot>("any");
   const [taskDaily, setTaskDaily] = useState(false);
+  const [freshTaskIds, setFreshTaskIds] = useState<Record<string, number>>({});
+  const [doneConfirm, setDoneConfirm] = useState<DoneConfirmState | null>(null);
+  const [removeConfirm, setRemoveConfirm] = useState<RemoveConfirmState | null>(null);
+  const knownTaskIdsRef = useRef<Set<string> | null>(null);
+  const flashTimeoutsRef = useRef<number[]>([]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, tab);
+    } catch {
+      // localStorage может быть недоступен (privacy mode); вкладка тогда просто не персистится.
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    if (!state) return;
+    const prevKnown = knownTaskIdsRef.current;
+    const currentIds = new Set(state.tasks.map((t) => t.id));
+    if (!prevKnown) {
+      knownTaskIdsRef.current = currentIds;
+      return;
+    }
+    const newIds = state.tasks.filter((t) => !prevKnown.has(t.id)).map((t) => t.id);
+    if (newIds.length > 0) {
+      const nowTs = Date.now();
+      setFreshTaskIds((prev) => {
+        const next = { ...prev };
+        for (const id of newIds) next[id] = nowTs;
+        return next;
+      });
+      const timeout = window.setTimeout(() => {
+        setFreshTaskIds((prev) => {
+          const next = { ...prev };
+          let changed = false;
+          for (const id of newIds) {
+            if (next[id]) {
+              delete next[id];
+              changed = true;
+            }
+          }
+          return changed ? next : prev;
+        });
+      }, NEW_TASK_FLASH_MS);
+      flashTimeoutsRef.current.push(timeout);
+    }
+    knownTaskIdsRef.current = currentIds;
+  }, [state]);
+
+  useEffect(() => {
+    return () => {
+      for (const timeout of flashTimeoutsRef.current) {
+        window.clearTimeout(timeout);
+      }
+    };
+  }, []);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -155,6 +237,7 @@ export default function App() {
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const shoppingOrdered = sortShoppingForDisplay(state.shopping);
   const repurchase = getRepurchaseCandidates(state.shopping);
+  const activeMember = isMemberId(tab) ? tab : null;
 
   const rowsForMember = (member: MemberId): { now: Row[]; later: Row[] } => {
     const tasks = state.tasks.filter((t) => t.assignee === member);
@@ -220,14 +303,21 @@ export default function App() {
     setTaskStatus(task.id, "done");
   };
 
+  const onRequestUndoTask = (task: Task) => {
+    setDoneConfirm({ kind: "task", id: task.id, title: task.title });
+  };
+
   const onBought = (item: ShoppingItem) => {
     markShoppingBought(item.id);
     showToast(`«${item.title}» — в корзине дома.`);
   };
 
+  const onRequestUndoShopping = (item: ShoppingItem) => {
+    setDoneConfirm({ kind: "shop", id: item.id, title: item.title });
+  };
+
   const onRemoveShop = (item: ShoppingItem) => {
-    removeShoppingItem(item.id);
-    showToast("Позиция убрана из списка.");
+    setRemoveConfirm({ kind: "shop", id: item.id, title: item.title });
   };
 
   const submitShop = (e: React.FormEvent) => {
@@ -260,26 +350,13 @@ export default function App() {
       ) : null}
       <header className="app-header">
         <div className="brand">
-          <img src={publicAsset("images/logo-mark.svg")} alt="" width={48} height={48} />
+          <img src={publicAsset("images/house.svg")} alt="" width={48} height={48} />
           <div>
             <h1>Дом и задачи</h1>
             <p>Семья · питомцы · покупки</p>
           </div>
         </div>
         <div className="header-actions">
-          <button
-            type="button"
-            className="resume-link"
-            onClick={() => setTaskBoardOpen(true)}
-            title="Список задач: правка, удаление"
-          >
-            <IconListChecks size={16} className="header-pill-icon" />
-            Задачи
-          </button>
-          <a className="resume-link" href="/resume/index.html" title="Открыть резюме">
-            Резюме
-          </a>
-          <img className="hero-art" src={publicAsset("images/house.svg")} alt="" />
           <div className="phase-pill" title={phaseTimeRange(phase)}>
             <IconClock size={16} />
             {phaseLabel(phase)}
@@ -288,35 +365,43 @@ export default function App() {
       </header>
 
       <nav className="tabs" role="tablist" aria-label="Разделы">
-        <button type="button" className="tab tab-all" role="tab" aria-selected={tab === "all"} onClick={() => setTab("all")}>
-          <IconUsers size={16} className="tab-icon" />
-          Все
-        </button>
-        <button
-          type="button"
-          className="tab tab-shop"
-          role="tab"
-          aria-selected={tab === "shop"}
-          onClick={() => setTab("shop")}
-          style={{ borderColor: tab === "shop" ? "var(--accent-2)" : undefined }}
-        >
-          <IconCart size={16} className="tab-icon" />
-          Купить
-        </button>
-        {MEMBERS.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            role="tab"
-            className="tab"
-            title={`${m.role} — ${m.fullName}`}
-            aria-selected={tab === m.id}
-            onClick={() => setTab(m.id)}
-            style={{ borderColor: tab === m.id ? m.color : undefined }}
-          >
-            {m.shortName}
+        <div className="tabs-row tabs-row--primary">
+          <button type="button" className="tab tab-all" role="tab" aria-selected={tab === "all"} onClick={() => setTab("all")}>
+            <IconUsers size={16} className="tab-icon" />
+            Все
           </button>
-        ))}
+          <button
+            type="button"
+            className="tab tab-shop"
+            role="tab"
+            aria-selected={tab === "shop"}
+            onClick={() => setTab("shop")}
+            style={{ borderColor: tab === "shop" ? "var(--accent-2)" : undefined }}
+          >
+            <IconCart size={16} className="tab-icon" />
+            Купить
+          </button>
+          <button type="button" className="tab tab-tasks" onClick={() => setTaskBoardOpen(true)} title="Список задач: правка, удаление">
+            <IconListChecks size={16} className="tab-icon" />
+            Задачи
+          </button>
+        </div>
+        <div className="tabs-row tabs-row--members">
+          {MEMBERS.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              role="tab"
+              className="tab"
+              title={`${m.role} — ${m.fullName}`}
+              aria-selected={tab === m.id}
+              onClick={() => setTab(m.id)}
+              style={{ borderColor: tab === m.id ? m.color : undefined }}
+            >
+              {m.shortName}
+            </button>
+          ))}
+        </div>
       </nav>
 
       {tab === "all" ? (
@@ -350,6 +435,7 @@ export default function App() {
                       <RowView
                         key={r.kind === "task" ? r.task.id : r.pet.id}
                         row={r}
+                        isFreshTask={r.kind === "task" ? Boolean(freshTaskIds[r.task.id]) : false}
                         dayKey={dk}
                         asOf={now}
                         onSetTaskNotes={setTaskNotes}
@@ -357,6 +443,8 @@ export default function App() {
                         onDonePet={onDonePet}
                         onSkipPetWalk={onSkipPetWalk}
                         onBought={onBought}
+                        onRequestUndoTask={onRequestUndoTask}
+                        onRequestUndoShopping={onRequestUndoShopping}
                       />
                     ))
                   )}
@@ -380,6 +468,7 @@ export default function App() {
                 <RowView
                   key={item.id}
                   row={{ kind: "shop", item }}
+                  isFreshTask={false}
                   dayKey={dk}
                   asOf={now}
                   onSetTaskNotes={setTaskNotes}
@@ -387,6 +476,8 @@ export default function App() {
                   onDonePet={onDonePet}
                   onSkipPetWalk={onSkipPetWalk}
                   onBought={onBought}
+                  onRequestUndoTask={onRequestUndoTask}
+                  onRequestUndoShopping={onRequestUndoShopping}
                   onRemoveShop={onRemoveShop}
                 />
               ))
@@ -411,6 +502,17 @@ export default function App() {
                       <div className="repurchase-actions">
                         <button
                           type="button"
+                          className="btn btn-ghost row-remove-shop"
+                          title="Больше не предлагать эту покупку"
+                          aria-label="Не покупать"
+                          onClick={() => {
+                            setRemoveConfirm({ kind: "repurchase", key: c.key, title: c.title });
+                          }}
+                        >
+                          <IconTrash size={16} />
+                        </button>
+                        <button
+                          type="button"
                           className="btn btn-ghost"
                           onClick={() => {
                             reopenShoppingItem(c.id);
@@ -419,18 +521,6 @@ export default function App() {
                         >
                           <IconPlus size={16} />
                           Снова в список
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost repurchase-discard"
-                          title="Больше не предлагать эту покупку"
-                          onClick={() => {
-                            removeBoughtHistoryByTitleKey(c.key);
-                            showToast("«" + c.title + "» убрано из подсказок и истории.");
-                          }}
-                        >
-                          <IconTrash size={16} />
-                          Не покупать
                         </button>
                       </div>
                     </li>
@@ -467,17 +557,20 @@ export default function App() {
             </form>
           </div>
         </section>
-      ) : (
+      ) : activeMember ? (
         <PersonSection
-          member={tab}
+          member={activeMember}
+          freshTaskIds={freshTaskIds}
           dayKey={dk}
           asOf={now}
           phase={phase}
-          rowsForMember={rowsForMember(tab)}
+          rowsForMember={rowsForMember(activeMember)}
           onDoneTask={onDoneTask}
           onDonePet={onDonePet}
           onSkipPetWalk={onSkipPetWalk}
           onBought={onBought}
+          onRequestUndoTask={onRequestUndoTask}
+          onRequestUndoShopping={onRequestUndoShopping}
           onRemoveShop={onRemoveShop}
           taskDraft={taskDraft}
           setTaskDraft={setTaskDraft}
@@ -486,18 +579,102 @@ export default function App() {
           taskDaily={taskDaily}
           setTaskDaily={setTaskDaily}
           onSetTaskNotes={setTaskNotes}
-          onSubmitTask={(e) => submitTask(e, tab)}
+          onSubmitTask={(e) => submitTask(e, activeMember)}
         />
+      ) : (
+        <section aria-label="Обзор семьи">
+          <div className="card">
+            <p className="empty">Некорректная вкладка. Возвращаюсь к разделу «Все»…</p>
+            <button type="button" className="btn btn-primary" onClick={() => setTab("all")}>
+              Открыть «Все»
+            </button>
+          </div>
+        </section>
       )}
 
       <div className="footer-actions">
-        <button type="button" className="linkish" onClick={resetDemo}>
-          Сбросить демо-данные
-        </button>
         <span className="badge" title="Общее состояние на сервере приложения">
           Сервер · {now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
         </span>
       </div>
+
+      {doneConfirm ? (
+        <div className="confirm-backdrop" role="presentation" onClick={() => setDoneConfirm(null)}>
+          <div
+            className="confirm-dialog card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Подтверждение отмены"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>Отменить?</h3>
+            <p className="section-hint">
+              {doneConfirm.kind === "task" ? "Снять отметку с дела" : "Снять отметку с покупки"} «{doneConfirm.title}».
+            </p>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                className="btn btn-cancel-done"
+                onClick={() => {
+                  if (doneConfirm.kind === "task") {
+                    setTaskStatus(doneConfirm.id, "planned");
+                    showToast("Отметка снята: задача снова в работе.");
+                  } else {
+                    reopenShoppingItem(doneConfirm.id);
+                    showToast("Отметка снята: покупка снова в списке.");
+                  }
+                  setDoneConfirm(null);
+                }}
+              >
+                Отменить
+              </button>
+              <button type="button" className="btn btn-keep-done" onClick={() => setDoneConfirm(null)}>
+                Дело сделано
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {removeConfirm ? (
+        <div className="confirm-backdrop" role="presentation" onClick={() => setRemoveConfirm(null)}>
+          <div
+            className="confirm-dialog card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Подтверждение удаления"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>Точно удалить?</h3>
+            <p className="section-hint">
+              {removeConfirm.kind === "shop"
+                ? `Позиция «${removeConfirm.title}» будет удалена из списка покупок.`
+                : `«${removeConfirm.title}» больше не будет показываться в блоке «Купить ещё».`}
+            </p>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                className="btn btn-cancel-done"
+                onClick={() => {
+                  if (removeConfirm.kind === "shop") {
+                    removeShoppingItem(removeConfirm.id);
+                    showToast("Позиция убрана из списка.");
+                  } else {
+                    removeBoughtHistoryByTitleKey(removeConfirm.key);
+                    showToast("«" + removeConfirm.title + "» убрано из подсказок и истории.");
+                  }
+                  setRemoveConfirm(null);
+                }}
+              >
+                Удалить
+              </button>
+              <button type="button" className="btn btn-keep-done" onClick={() => setRemoveConfirm(null)}>
+                Оставить
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {toast ? <div className="toast" role="status">{toast}</div> : null}
 
@@ -528,6 +705,7 @@ export default function App() {
 
 function PersonSection({
   member,
+  freshTaskIds,
   dayKey,
   asOf,
   phase,
@@ -536,6 +714,8 @@ function PersonSection({
   onDonePet,
   onSkipPetWalk,
   onBought,
+  onRequestUndoTask,
+  onRequestUndoShopping,
   onRemoveShop,
   taskDraft,
   setTaskDraft,
@@ -547,6 +727,7 @@ function PersonSection({
   onSubmitTask,
 }: {
   member: MemberId;
+  freshTaskIds: Record<string, number>;
   dayKey: string;
   asOf: Date;
   phase: ReturnType<typeof getDayPhase>;
@@ -555,6 +736,8 @@ function PersonSection({
   onDonePet: (p: VirtualPetTask) => void;
   onSkipPetWalk: (p: VirtualPetTask) => void;
   onBought: (s: ShoppingItem) => void;
+  onRequestUndoTask: (t: Task) => void;
+  onRequestUndoShopping: (s: ShoppingItem) => void;
   onRemoveShop: (s: ShoppingItem) => void;
   taskDraft: string;
   setTaskDraft: (s: string) => void;
@@ -600,6 +783,7 @@ function PersonSection({
                     : `shop-${r.item.id}`
               }
               row={r}
+              isFreshTask={r.kind === "task" ? Boolean(freshTaskIds[r.task.id]) : false}
               dayKey={dayKey}
               asOf={asOf}
               onSetTaskNotes={onSetTaskNotes}
@@ -607,6 +791,8 @@ function PersonSection({
               onDonePet={onDonePet}
               onSkipPetWalk={onSkipPetWalk}
               onBought={onBought}
+              onRequestUndoTask={onRequestUndoTask}
+              onRequestUndoShopping={onRequestUndoShopping}
               onRemoveShop={onRemoveShop}
             />
           ))
@@ -629,6 +815,7 @@ function PersonSection({
                     : `shop-${r.item.id}`
               }
               row={r}
+              isFreshTask={r.kind === "task" ? Boolean(freshTaskIds[r.task.id]) : false}
               dayKey={dayKey}
               asOf={asOf}
               onSetTaskNotes={onSetTaskNotes}
@@ -636,6 +823,8 @@ function PersonSection({
               onDonePet={onDonePet}
               onSkipPetWalk={onSkipPetWalk}
               onBought={onBought}
+              onRequestUndoTask={onRequestUndoTask}
+              onRequestUndoShopping={onRequestUndoShopping}
               onRemoveShop={onRemoveShop}
             />
           ))
@@ -674,13 +863,17 @@ function TaskItemRow({
   task,
   eff,
   slotMissed,
+  isFreshTask,
   onDone,
+  onRequestUndoTask,
   onSetTaskNotes,
 }: {
   task: Task;
   eff: TaskStatus;
   slotMissed: boolean;
+  isFreshTask: boolean;
   onDone: () => void;
+  onRequestUndoTask: (task: Task) => void;
   onSetTaskNotes: (id: string, n: string) => void;
 }) {
   const [notesOpen, setNotesOpen] = useState(false);
@@ -692,7 +885,7 @@ function TaskItemRow({
 
   const hasNotes = Boolean(task.notes?.trim());
   return (
-    <div className="row row--task">
+    <div className={isFreshTask ? "row row--task row--task-fresh" : "row row--task"}>
       <div>
         <div className="row-title">{task.title}</div>
         <div className="row-meta">
@@ -744,10 +937,15 @@ function TaskItemRow({
             </button>
           </>
         ) : (
-          <span className="status-pill status-pill--done" role="img" aria-label="Сделано сегодня">
+          <button
+            type="button"
+            className="status-pill status-pill--done status-pill-button"
+            aria-label="Сделано сегодня. Нажмите, чтобы открыть подтверждение отмены."
+            onClick={() => onRequestUndoTask(task)}
+          >
             <IconCheck size={16} className="status-pill__icon" />
             {task.recurrence === "daily" ? "Сегодня сделано" : "Готово"}
-          </span>
+          </button>
         )}
       </div>
     </div>
@@ -756,6 +954,7 @@ function TaskItemRow({
 
 function RowView({
   row,
+  isFreshTask,
   dayKey,
   asOf = new Date(),
   onSetTaskNotes,
@@ -763,9 +962,12 @@ function RowView({
   onDonePet,
   onSkipPetWalk,
   onBought,
+  onRequestUndoTask,
+  onRequestUndoShopping,
   onRemoveShop,
 }: {
   row: Row;
+  isFreshTask: boolean;
   dayKey: string;
   asOf?: Date;
   onSetTaskNotes: (id: string, n: string) => void;
@@ -773,6 +975,8 @@ function RowView({
   onDonePet: (p: VirtualPetTask) => void;
   onSkipPetWalk: (p: VirtualPetTask) => void;
   onBought: (s: ShoppingItem) => void;
+  onRequestUndoTask: (t: Task) => void;
+  onRequestUndoShopping: (s: ShoppingItem) => void;
   onRemoveShop?: (s: ShoppingItem) => void;
 }) {
   if (row.kind === "shop") {
@@ -792,22 +996,40 @@ function RowView({
         </div>
         <div className="row-actions">
           {isBought ? (
-            <span className="status-pill status-pill--done" role="img" aria-label="Покупка оформлена">
+            <button
+              type="button"
+              className="status-pill status-pill--done status-pill-button"
+              aria-label="Покупка отмечена. Нажмите, чтобы открыть подтверждение отмены."
+              onClick={() => onRequestUndoShopping(item)}
+            >
               <IconCheck size={16} className="status-pill__icon" />
               Куплено
-            </span>
+            </button>
           ) : (
-            <>
-              <span className="status-pill status-pill--pending" title="Ожидает покупки">
-                {PENDING_SHOPPING_LABEL}
-              </span>
-              <button type="button" className="btn btn-ghost" onClick={() => onBought(item)}>
-                <IconCheck size={16} />
-                куплено
-              </button>
-            </>
+            <div className="shop-open-layout">
+              {onRemoveShop ? (
+                <button
+                  type="button"
+                  className="btn btn-ghost row-remove-shop"
+                  title="Убрать из списка"
+                  aria-label="Убрать из списка"
+                  onClick={() => onRemoveShop(item)}
+                >
+                  <IconTrash size={16} />
+                </button>
+              ) : null}
+              <div className="shop-open-right">
+                <span className="status-pill status-pill--pending" title="Ожидает покупки">
+                  {PENDING_SHOPPING_LABEL}
+                </span>
+                <button type="button" className="status-pill status-pill--pending shop-open-buy" onClick={() => onBought(item)}>
+                  <IconCheck size={16} />
+                  куплено
+                </button>
+              </div>
+            </div>
           )}
-          {onRemoveShop ? (
+          {isBought && onRemoveShop ? (
             <button
               type="button"
               className="btn btn-ghost row-remove-shop"
@@ -832,7 +1054,9 @@ function RowView({
         task={task}
         eff={eff}
         slotMissed={slotMissed}
+        isFreshTask={isFreshTask}
         onDone={() => onDoneTask(task)}
+        onRequestUndoTask={onRequestUndoTask}
         onSetTaskNotes={onSetTaskNotes}
       />
     );
