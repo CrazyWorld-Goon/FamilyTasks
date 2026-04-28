@@ -61,13 +61,13 @@ export function aggregateForAll(
   tasks: Task[],
   virtualPets: VirtualPetTask[],
   shopping: ShoppingItem[],
+  memberIds: MemberId[],
   now: Date = new Date(),
 ): { member: MemberId; relevant: number; planned: number }[] {
   const phase = getDayPhase(now);
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const dkey = now.toISOString().slice(0, 10);
-  const members: MemberId[] = ["anya", "seryozha", "tamara", "luka"];
-  return members.map((member) => {
+  return memberIds.map((member) => {
     const relTasks = tasks.filter((t) => t.assignee === member && taskRelevantNow(t, phase, dkey, now));
     const relPets = virtualPets.filter((v) => v.assignee === member && petTaskRelevantNow(v, phase, nowMin));
     const shopTasks = shoppingAsTasksForMember(shopping, member).filter((t) => taskRelevantNow(t, phase, dkey, now));

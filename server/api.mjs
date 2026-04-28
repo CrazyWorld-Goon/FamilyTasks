@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Fabric Hub (`@fabric/hub/services/hub`) + Family Tasks REST (`GET|PUT /api/state`).
+ * Fabric Hub (`@fabric/hub/services/hub`) + Family Tasks REST (`GET|PUT /api/state`, JSON Pointer `GET|PUT|DELETE /api/store`).
  * HTTP/WebSocket surface matches Hub defaults (WebRTC signaling over WS + `/services/rpc`).
  *
  * Env: PORT / FABRIC_HUB_PORT — HTTP listener (Hub `settings.http.port`).
@@ -23,6 +23,21 @@ import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import { ensureFabricDocumentOfferEnvelope } from "../scripts/ensureFabricCoreEnvelope.mjs";
 import { loadFamilySettingsLocal } from "../scripts/familySettings.mjs";
+import {
+  fabricDELETE,
+  fabricGET,
+  fabricPUT,
+  migrateStateDocument,
+} from "./fabricPointerStore.mjs";
+import {
+  FamilyTasksFabricStore,
+  validatePersistedDocument,
+} from "./FamilyTasksFabricStore.mjs";
+import { migrateDocumentToFabricIds } from "./fabricDocumentMigration.mjs";
+import { createDefaultAppState } from "./defaultAppState.mjs";
+import { getOrCreateNodeMasterKey, readNodeMasterKeyMeta } from "./fabricNodeMasterKey.mjs";
+import { signFabricOwnerEnvelope } from "./fabricOwnerToken.mjs";
+import { isFabricActorId } from "./fabricActorIdentity.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
@@ -31,6 +46,7 @@ ensureFabricDocumentOfferEnvelope(root);
 
 const require = createRequire(import.meta.url);
 const merge = require("lodash.merge");
+const familyFederationRef = require(path.join(root, "contracts/familyFederation.cjs"));
 const Hub = require("@fabric/hub");
 const hubMainPath = require.resolve("@fabric/hub");
 const hubPackageRoot = path.join(path.dirname(hubMainPath), "..");
@@ -41,6 +57,20 @@ const dist = path.join(root, "dist");
 const dataDir = process.env.DATA_DIR || path.join(root, "data");
 const hubDataRoot = path.join(dataDir, "fabric-hub");
 const stateFile = path.join(dataDir, "app-state.json");
+/** Single JSON document: tasks, shopping, petCompletions, users — Fabric-style pointer access via `/api/store`. */
+let fabricStore;
+/** @type {Record<string, unknown>} */
+let stateDoc;
+
+async function bootstrapState() {
+  fabricStore = new FamilyTasksFabricStore(dataDir);
+  stateDoc = await fabricStore.loadApplicationDocument(createDefaultAppState);
+  getOrCreateNodeMasterKey(dataDir);
+}
+
+async function persistState() {
+  await fabricStore.persistApplicationDocument(stateDoc);
+}
 /** Public URL prefix for logs (should match FABRIC_APP_BASE used at build time). */
 const appBase = (process.env.APP_BASE || process.env.FABRIC_APP_BASE || "/").replace(/\/?$/, "/");
 
@@ -61,7 +91,15 @@ function buildHubSettings() {
   const envHttpPort = process.env.FABRIC_HUB_PORT || process.env.PORT;
   const httpPort = coercePort(envHttpPort, coercePort(mergedBase.http?.port, 8080));
 
+  const baseFeds = Array.isArray(mergedBase.federations) ? mergedBase.federations : [];
+  const federationList = [...baseFeds];
+  const famId = familyFederationRef.id;
+  if (!federationList.some((f) => f && f.id === famId)) {
+    federationList.push(familyFederationRef);
+  }
+
   return merge({}, mergedBase, {
+    federations: federationList,
     title: mergedBase.title || mergedBase.name || hubSettingsLocal.title,
     path: path.join(hubDataRoot, "hub"),
     fs: {
@@ -122,33 +160,159 @@ function configureFamilyTasksUi(hub) {
 }
 
 function mountAppStateRoutes(hub) {
-  hub.http._addRoute("get", "/api/state", (req, res) => {
+  hub.http._addRoute("get", "/api/state", (_req, res) => {
     try {
-      if (!fs.existsSync(stateFile)) {
-        return res.status(404).json({ error: "not_found" });
-      }
-      const raw = fs.readFileSync(stateFile, "utf8");
-      res.type("application/json").send(raw);
+      res.type("application/json").send(JSON.stringify(stateDoc));
     } catch {
       res.status(500).json({ error: "read_failed" });
     }
   });
 
-  hub.http._addRoute("put", "/api/state", (req, res) => {
+  hub.http._addRoute("put", "/api/state", async (req, res) => {
     try {
       const body = req.body;
       if (!body || !Array.isArray(body.tasks) || !Array.isArray(body.shopping)) {
         return res.status(400).json({ error: "invalid" });
       }
-      const out = {
+      let next = {
+        ...stateDoc,
         tasks: body.tasks,
         shopping: body.shopping,
         petCompletions: body.petCompletions && typeof body.petCompletions === "object" ? body.petCompletions : {},
       };
-      fs.writeFileSync(stateFile, JSON.stringify(out), "utf8");
+      if (body.users !== undefined) {
+        next.users = body.users;
+      }
+      if (body.family !== undefined) {
+        next.family = body.family;
+      }
+      next = migrateDocumentToFabricIds(next).doc;
+      if (!validatePersistedDocument(next)) {
+        return res.status(400).json({ error: "invalid_document" });
+      }
+      stateDoc = next;
+      await persistState();
       res.json({ ok: true });
     } catch {
       res.status(500).json({ error: "write_failed" });
+    }
+  });
+
+  /** JSON Pointer read (RFC 6901). Query: `path` — default `/` for full document. */
+  hub.http._addRoute("get", "/api/store", (req, res) => {
+    try {
+      const raw = req.query && req.query.path !== undefined ? String(req.query.path) : "/";
+      const ptr = raw === "" ? "/" : raw.startsWith("/") ? raw : `/${raw}`;
+      const data = fabricGET(stateDoc, ptr);
+      res.json({ path: ptr, data });
+    } catch (e) {
+      res.status(500).json({ error: String(e && e.message ? e.message : e) });
+    }
+  });
+
+  /** JSON Pointer write. Body: `{ "path": "/users", "value": [...] }` — use `path` `/` to replace entire document (validated + migrated). */
+  hub.http._addRoute("put", "/api/store", async (req, res) => {
+    try {
+      const body = req.body;
+      if (!body || typeof body.path !== "string") {
+        return res.status(400).json({ error: "invalid" });
+      }
+      const ptr = body.path === "" ? "/" : body.path.startsWith("/") ? body.path : `/${body.path}`;
+      if (ptr === "/") {
+        stateDoc = migrateStateDocument(body.value, createDefaultAppState);
+        if (!validatePersistedDocument(stateDoc)) {
+          return res.status(400).json({ error: "invalid_document" });
+        }
+      } else {
+        fabricPUT(stateDoc, ptr, body.value);
+        stateDoc = migrateDocumentToFabricIds(stateDoc).doc;
+        if (!validatePersistedDocument(stateDoc)) {
+          return res.status(400).json({ error: "invalid_document" });
+        }
+      }
+      await persistState();
+      res.json({ ok: true, path: ptr, data: fabricGET(stateDoc, ptr) });
+    } catch (e) {
+      res.status(400).json({ error: String(e && e.message ? e.message : e) });
+    }
+  });
+
+  hub.http._addRoute("delete", "/api/store", async (req, res) => {
+    try {
+      const raw = req.query && req.query.path !== undefined ? String(req.query.path) : "";
+      const ptr = raw === "" ? "/" : raw.startsWith("/") ? raw : `/${raw}`;
+      if (ptr === "/") {
+        return res.status(400).json({ error: "root_delete_not_allowed" });
+      }
+      fabricDELETE(stateDoc, ptr);
+      stateDoc = migrateDocumentToFabricIds(stateDoc).doc;
+      if (!validatePersistedDocument(stateDoc)) {
+        return res.status(400).json({ error: "invalid_document" });
+      }
+      await persistState();
+      res.json({ ok: true, path: ptr });
+    } catch (e) {
+      res.status(400).json({ error: String(e && e.message ? e.message : e) });
+    }
+  });
+}
+
+function mountFabricEndpoints(hub) {
+  hub.http._addRoute("get", "/api/fabric/node-key", (_req, res) => {
+    try {
+      const meta = readNodeMasterKeyMeta(dataDir);
+      let publicKeyHex = meta?.publicKeyHex || "";
+      if (!publicKeyHex) {
+        const k = getOrCreateNodeMasterKey(dataDir);
+        publicKeyHex = k.pubkey;
+      }
+      if (!publicKeyHex) {
+        return res.status(503).json({ error: "master_key_unavailable" });
+      }
+      res.json({
+        publicKeyHex,
+        createdAt: meta?.createdAt ?? null,
+        kind: "FamilyTasks/NodeMasterKey",
+      });
+    } catch (e) {
+      res.status(500).json({ error: String(e && e.message ? e.message : e) });
+    }
+  });
+
+  hub.http._addRoute("post", "/api/fabric/issue-owner-token", (req, res) => {
+    try {
+      const body = req.body || {};
+      const userId = typeof body.userId === "string" ? body.userId.trim() : "";
+      if (!userId || !isFabricActorId(userId)) {
+        return res.status(400).json({ error: "invalid_user_id" });
+      }
+      if (!stateDoc.family || typeof stateDoc.family !== "object" || stateDoc.family.setupComplete !== true) {
+        return res.status(409).json({ error: "family_not_ready" });
+      }
+      const users = Array.isArray(stateDoc.users) ? stateDoc.users : [];
+      const user = users.find((u) => u && typeof u === "object" && u.id === userId);
+      if (!user) {
+        return res.status(404).json({ error: "user_not_found" });
+      }
+      const ownerUserId = typeof stateDoc.family.ownerUserId === "string" ? stateDoc.family.ownerUserId : "";
+      if (ownerUserId && ownerUserId !== userId) {
+        return res.status(403).json({ error: "not_owner" });
+      }
+      const masterKey = getOrCreateNodeMasterKey(dataDir);
+      const payload = {
+        type: "FamilyTasks/OwnerToken",
+        version: 1,
+        userId: user.id,
+        userShortName: typeof user.shortName === "string" ? user.shortName : "",
+        familyDisplayName: typeof stateDoc.family.displayName === "string" ? stateDoc.family.displayName : "",
+        familyOwnerUserId: ownerUserId || userId,
+        issuedAt: new Date().toISOString(),
+      };
+      const envelope = signFabricOwnerEnvelope(masterKey, payload);
+      res.json(envelope);
+    } catch (e) {
+      console.error("[family-tasks] issue-owner-token:", e);
+      res.status(500).json({ error: "issue_failed" });
     }
   });
 }
@@ -157,6 +321,7 @@ class FamilyTasksHub extends Hub {
   constructor(settings) {
     super(settings);
     mountAppStateRoutes(this);
+    mountFabricEndpoints(this);
   }
 }
 
@@ -165,6 +330,7 @@ async function main() {
   if (Object.keys(familySettingsLocal).length > 0) {
     console.log("[family-tasks] Merged ./settings/local.cjs into Hub defaults.");
   }
+  await bootstrapState();
   const hub = new FamilyTasksHub(settings);
   configureFamilyTasksUi(hub);
 
@@ -196,6 +362,7 @@ async function main() {
   console.log(`[family-tasks] ${mode}`);
   console.log(`[family-tasks] App state file: ${stateFile}`);
   console.log(`[family-tasks] Hub store: ${hubDataRoot}`);
+  console.log("[family-tasks] Fabric endpoints: GET /api/fabric/node-key · POST /api/fabric/issue-owner-token");
 }
 
 main().catch((err) => {

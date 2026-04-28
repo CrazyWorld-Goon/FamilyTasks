@@ -1,4 +1,7 @@
-export type MemberId = "anya" | "seryozha" | "tamara" | "luka";
+import type { FabricActorId } from "./fabricIds";
+
+/** Fabric {@link Actor#id} — family members, task/shopping assignees. */
+export type MemberId = FabricActorId;
 
 export type PetSpecies = "cat" | "dog";
 
@@ -9,15 +12,16 @@ export type TimeSlot = "morning" | "day" | "evening" | "night" | "any";
 export type PetCareKind = "feed" | "walk";
 
 export interface FamilyMember {
-  id: MemberId;
+  id: FabricActorId;
   shortName: string;
   fullName: string;
   role: string;
   color: string;
 }
 
+/** Catalog pet — persisted references use {@link id} as Fabric Actor id (`FamilyTasks/Pet`). */
 export interface Pet {
-  id: string;
+  id: FabricActorId;
   name: string;
   species: PetSpecies;
 }
@@ -30,7 +34,7 @@ export interface PetRoutineSlot {
 }
 
 export interface Task {
-  id: string;
+  id: FabricActorId;
   title: string;
   assignee: MemberId;
   status: TaskStatus;
@@ -41,10 +45,10 @@ export interface Task {
   recurrence?: "daily";
   /** Для daily: YYYY-MM-DD, когда в последний раз нажали «готово». */
   lastCompletedOn?: string;
-  petId?: string;
+  petId?: FabricActorId;
   petKind?: PetCareKind;
   /** Связь с пунктом покупок */
-  shoppingItemId?: string;
+  shoppingItemId?: FabricActorId;
   /** Пояснения, что именно сделать сегодня. */
   notes?: string;
 }
@@ -54,7 +58,7 @@ export type ShoppingStatus = "open" | "bought";
 export type TabId = "all" | "network" | "shop" | MemberId;
 
 export interface ShoppingItem {
-  id: string;
+  id: FabricActorId;
   title: string;
   /** Кому попадает в задачи (обычно мама) */
   assignee: MemberId;
@@ -64,19 +68,34 @@ export interface ShoppingItem {
   boughtAt?: string;
 }
 
+export interface FamilyState {
+  setupComplete: boolean;
+  ownerUserId?: FabricActorId;
+  displayName?: string;
+  /** ISO timestamp when onboarding finished */
+  setupCompletedAt?: string;
+  /** e.g. `legacy` migration */
+  source?: string;
+}
+
 export interface AppState {
   tasks: Task[];
   shopping: ShoppingItem[];
+  /** Fabric Hub–aligned household lifecycle; one logical family per node. */
+  family?: FamilyState;
+  /** Family members (persisted). When empty, clients fall back to `DEFAULT_MEMBERS` in `constants.ts` unless {@link FamilyState.setupComplete} is false (first-run). */
+  users?: FamilyMember[];
 }
 
 export type DayPhase = "morning" | "day" | "evening" | "night" | "sleep";
 
 export interface VirtualPetTask {
+  /** Composite key for UI — not a Fabric entity id. */
   id: string;
   title: string;
   assignee: MemberId;
   status: TaskStatus;
-  petId: string;
+  petId: FabricActorId;
   petName: string;
   species: PetSpecies;
   kind: PetCareKind;

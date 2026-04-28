@@ -15,6 +15,9 @@
   },
   "sync": {
     "noServerBold": "Cannot reach the server",
+    "invalidDataBold": "Could not read saved data",
+    "invalidDataHint": "Restart `npm start`, wait until logs say Fabric Hub listening, then Retry — older saves repair automatically on startup.",
+    "httpErrorBold": "Server refused this request",
     "hint": "The API must be running (see README). Command:",
     "retry": "Retry"
   },
@@ -24,11 +27,51 @@
     "title": "Home & tasks",
     "tagline": "Family · pets · shopping"
   },
+  "familySetup": {
+    "subtitle": "Household setup",
+    "heading": "Welcome — set up your home",
+    "hint": "This node stores one household. You will be the organizer; add others later under Family members.",
+    "federationHint": "The Fabric Hub also lists this home in the federation registry (with other operator federations). Open Network for links.",
+    "homeName": "Home name",
+    "homeNamePlaceholder": "e.g. The Smiths",
+    "ownerSection": "You (primary organizer)",
+    "yourShortName": "Short name (tab)",
+    "shortPlaceholder": "Name",
+    "yourFullName": "Full name (optional)",
+    "fullPlaceholder": "Given and family name",
+    "role": "Role / label",
+    "defaultRole": "Owner",
+    "tabColor": "Tab color",
+    "submit": "Finish setup"
+  },
+  "ownerToken": {
+    "subtitle": "Owner credential",
+    "heading": "Save your signed owner token",
+    "body": "This hub created a Fabric signing key and issued a token for your organizer account. Keep a file copy — you may need it if this browser’s storage is cleared or on a new device.",
+    "offlineHint": "A copy is stored in this browser’s local storage; the file backup helps with the offline-first workflows we are polishing next.",
+    "loading": "Asking the hub to sign your token…",
+    "retry": "Retry",
+    "download": "Download backup (.json)",
+    "confirm": "I saved a backup — continue",
+    "error": "Could not obtain the signed token.",
+    "errorHint": "Check that the Hub is running (see README). If you just finished setup, wait a moment and retry — your save might still be syncing."
+  },
   "memberRoles": {
     "anya": "Mom",
     "seryozha": "Dad",
     "tamara": "Daughter",
     "luka": "Son"
+  },
+  "users": {
+    "heading": "Family members",
+    "hint": "People appear as tabs and task assignees. Removing someone reassigns their tasks and shopping to the first person in the list.",
+    "shortName": "Short name (tab)",
+    "fullName": "Full name",
+    "role": "Role / label",
+    "color": "Tab color",
+    "add": "Add person",
+    "remove": "Remove",
+    "cannotRemoveLast": "Keep at least one person"
   },
   "tabs": {
     "ariaSections": "Sections",
@@ -42,7 +85,8 @@
     "aria": "Fabric network",
     "heading": "Fabric network",
     "hint": "WebSocket + WebRTC signaling uses the Fabric Hub that also hosts your saved tasks (/api). In development the Hub runs on a different port than Vite — use VITE_HUB_ADDRESS from npm run dev.",
-    "sameOriginHint": "Hub address defaults to this page’s origin when unset (works when the app is served by the Hub)."
+    "sameOriginHint": "Hub address defaults to this page’s origin when unset (works when the app is served by the Hub).",
+    "federationFamilyHint": "This Family Tasks hub registers one household federation (familytasks-household). The full federation catalog is Hub-wide — see federation registry JSON in the Distributed services."
   },
   "overview": {
     "ariaFamily": "Family overview",

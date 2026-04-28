@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
-import { MEMBERS } from "../constants";
 import { useI18n } from "../i18n/I18nProvider";
 import { IconCheck, IconPencil, IconPlus, IconTrash, IconListChecks, IconClose } from "./Icons";
 import { getEffectiveTaskStatus } from "../logic/taskDay";
-import type { MemberId, Task, TimeSlot } from "../types";
+import type { FamilyMember, MemberId, Task, TimeSlot } from "../types";
 
 function slotShort(tFn: (path: string) => string, slot: TimeSlot): string {
   return tFn(`slots.slotHintShort.${slot}`);
@@ -33,6 +32,7 @@ export function TasksManageDialog({
   open,
   onClose,
   tasks,
+  members,
   dayKey,
   onUpdate,
   onDelete,
@@ -40,6 +40,7 @@ export function TasksManageDialog({
   open: boolean;
   onClose: () => void;
   tasks: Task[];
+  members: FamilyMember[];
   dayKey: string;
   onUpdate: (id: string, data: UpdatePayload) => void;
   onDelete: (id: string) => void;
@@ -59,7 +60,7 @@ export function TasksManageDialog({
   );
 
   const sorted = useMemo(() => {
-    const order = new Map(MEMBERS.map((m, i) => [m.id, i]));
+    const order = new Map(members.map((m, i) => [m.id, i]));
     const collator = locale === "ru" ? "ru" : "en";
     return [...tasks].sort((a, b) => {
       const oa = order.get(a.assignee) ?? 99;
@@ -67,7 +68,7 @@ export function TasksManageDialog({
       if (oa !== ob) return oa - ob;
       return a.title.localeCompare(b.title, collator);
     });
-  }, [tasks, locale]);
+  }, [tasks, locale, members]);
 
   const startEdit = useCallback((task: Task) => {
     setEditingId(task.id);
@@ -152,7 +153,7 @@ export function TasksManageDialog({
           <ul className="task-manage-list">
             {sorted.map((taskItem) => {
               const eff = getEffectiveTaskStatus(taskItem, dayKey);
-              const m = MEMBERS.find((x) => x.id === taskItem.assignee);
+              const m = members.find((x) => x.id === taskItem.assignee);
               const isEdit = editingId === taskItem.id && form;
 
               return (
@@ -172,7 +173,7 @@ export function TasksManageDialog({
                             value={form.assignee}
                             onChange={(e) => setForm({ ...form, assignee: e.target.value as MemberId })}
                           >
-                            {MEMBERS.map((mem) => (
+                            {members.map((mem) => (
                               <option key={mem.id} value={mem.id}>
                                 {mem.shortName}
                               </option>
