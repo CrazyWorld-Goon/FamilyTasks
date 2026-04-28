@@ -146,6 +146,7 @@ export default function App() {
     deleteTask,
     setPetCompletion,
     completeFamilySetup,
+    setFabricTasksPublic,
   } = usePersistedApp();
   const handleFamilySetupComplete = useCallback(
     async (data: {
@@ -154,6 +155,7 @@ export default function App() {
       fullName: string;
       role: string;
       color: string;
+      fabricTasksPublic: boolean;
     }) => {
       const ownerId = await completeFamilySetup(data);
       if (ownerId) setPendingOwnerToken(ownerId);
@@ -318,6 +320,14 @@ export default function App() {
       error: null,
     });
   }, []);
+
+  const fabricSharingEnabled = Boolean(state?.family?.fabricTasksPublic);
+  const onTaskFabricPublished = useCallback(
+    (taskId: string, published: boolean) => {
+      updateTask(taskId, { fabricPublished: published });
+    },
+    [updateTask],
+  );
 
   const toggleRequestedAssignee = useCallback((memberId: MemberId) => {
     setRequestAssignees((prev) => {
@@ -660,6 +670,8 @@ export default function App() {
                         dayKey={dk}
                         viewerMember={m.id}
                         asOf={now}
+                        fabricSharingEnabled={fabricSharingEnabled}
+                        onTaskFabricPublished={onTaskFabricPublished}
                         onSetTaskNotes={setTaskNotes}
                         onDoneTask={onDoneTask}
                         onDonePet={onDonePet}
@@ -702,6 +714,8 @@ export default function App() {
                 <FabricNetwork
                   hubAddress={hubAddress || undefined}
                   showDebug
+                  fabricTasksPublic={Boolean(state.family?.fabricTasksPublic)}
+                  onFabricTasksPublicChange={setFabricTasksPublic}
                   onOpenPeer={(peer, index) => setTab(encodePeerViewTabId(peer, index))}
                 />
               </>
@@ -824,6 +838,8 @@ export default function App() {
           asOf={now}
           phase={phase}
           rowsForMember={rowsForMember(activeMember)}
+          fabricSharingEnabled={fabricSharingEnabled}
+          onTaskFabricPublished={onTaskFabricPublished}
           onDoneTask={onDoneTask}
           onDonePet={onDonePet}
           onRequestUndoPet={onRequestUndoPet}
@@ -1018,6 +1034,7 @@ export default function App() {
         tasks={state.tasks}
         members={members}
         dayKey={dk}
+        fabricTasksPublic={Boolean(state.family?.fabricTasksPublic)}
         onUpdate={(id, data) => {
           updateTask(id, {
             title: data.title,
@@ -1028,6 +1045,7 @@ export default function App() {
             daily: data.daily,
             assignees: data.assignees,
             plannedTime: data.plannedTime,
+            fabricPublished: data.fabricPublished,
           });
           showToast(t("toasts.taskSaved"));
         }}
@@ -1039,6 +1057,7 @@ export default function App() {
             assignees: data.assignees,
             active: data.active,
             plannedTime: data.plannedTime,
+            fabricPublished: data.fabricPublished,
           });
           showToast(t("toasts.taskAddedDaily"));
         }}
@@ -1050,6 +1069,7 @@ export default function App() {
             assignees: data.assignees,
             active: data.active,
             plannedTime: data.plannedTime,
+            fabricPublished: data.fabricPublished,
           });
           showToast(t("toasts.taskSaved"));
         }}
@@ -1070,6 +1090,8 @@ function PersonSection({
   asOf,
   phase,
   rowsForMember,
+  fabricSharingEnabled,
+  onTaskFabricPublished,
   onDoneTask,
   onDonePet,
   onRequestUndoPet,
@@ -1099,6 +1121,8 @@ function PersonSection({
   asOf: Date;
   phase: ReturnType<typeof getDayPhase>;
   rowsForMember: { now: Row[]; later: Row[] };
+  fabricSharingEnabled: boolean;
+  onTaskFabricPublished: (taskId: string, published: boolean) => void;
   onDoneTask: (t: Task) => void;
   onDonePet: (p: VirtualPetTask) => void;
   onRequestUndoPet: (p: VirtualPetTask) => void;
@@ -1162,6 +1186,8 @@ function PersonSection({
               dayKey={dayKey}
               viewerMember={m.id}
               asOf={asOf}
+              fabricSharingEnabled={fabricSharingEnabled}
+              onTaskFabricPublished={onTaskFabricPublished}
               onSetTaskNotes={onSetTaskNotes}
               onDoneTask={onDoneTask}
               onDonePet={onDonePet}
@@ -1198,6 +1224,8 @@ function PersonSection({
               dayKey={dayKey}
               viewerMember={m.id}
               asOf={asOf}
+              fabricSharingEnabled={fabricSharingEnabled}
+              onTaskFabricPublished={onTaskFabricPublished}
               onSetTaskNotes={onSetTaskNotes}
               onDoneTask={onDoneTask}
               onDonePet={onDonePet}
@@ -1260,6 +1288,8 @@ function TaskItemRow({
   slotMissed,
   isFreshTask,
   viewerMember,
+  fabricSharingEnabled,
+  onTaskFabricPublished,
   onDone,
   onRequestUndoTask,
   onRequestAssignees,
@@ -1270,6 +1300,8 @@ function TaskItemRow({
   slotMissed: boolean;
   isFreshTask: boolean;
   viewerMember?: MemberId;
+  fabricSharingEnabled?: boolean;
+  onTaskFabricPublished?: (taskId: string, published: boolean) => void;
   onDone: () => void;
   onRequestUndoTask: (task: Task) => void;
   onRequestAssignees: (task: Task) => void;
@@ -1311,7 +1343,22 @@ function TaskItemRow({
               {t("tasksManage.dailyBadge")}
             </span>
           ) : null}
+          {fabricSharingEnabled && task.fabricPublished ? (
+            <span className="badge badge-fabric" title={t("taskRow.publishOnFabricHint")}>
+              {t("tasksManage.fabricBadge")}
+            </span>
+          ) : null}
         </div>
+        {fabricSharingEnabled && onTaskFabricPublished ? (
+          <label className="checkbox-line task-fabric-publish">
+            <input
+              type="checkbox"
+              checked={Boolean(task.fabricPublished)}
+              onChange={(e) => onTaskFabricPublished(task.id, e.target.checked)}
+            />
+            <span>{t("taskRow.publishOnFabric")}</span>
+          </label>
+        ) : null}
         {hasNotes ? <p className="row-note">{task.notes}</p> : null}
         {notesOpen ? (
           <div className="task-notes-edit">
@@ -1379,6 +1426,8 @@ function RowView({
   dayKey,
   viewerMember,
   asOf = new Date(),
+  fabricSharingEnabled = false,
+  onTaskFabricPublished,
   onSetTaskNotes,
   onDoneTask,
   onDonePet,
@@ -1396,6 +1445,8 @@ function RowView({
   dayKey: string;
   viewerMember?: MemberId;
   asOf?: Date;
+  fabricSharingEnabled?: boolean;
+  onTaskFabricPublished?: (taskId: string, published: boolean) => void;
   onSetTaskNotes: (id: string, n: string) => void;
   onDoneTask: (t: Task) => void;
   onDonePet: (p: VirtualPetTask) => void;
@@ -1492,6 +1543,8 @@ function RowView({
         slotMissed={slotMissed}
         isFreshTask={isFreshTask}
         viewerMember={viewerMember}
+        fabricSharingEnabled={fabricSharingEnabled}
+        onTaskFabricPublished={onTaskFabricPublished}
         onDone={() => onDoneTask(task)}
         onRequestUndoTask={onRequestUndoTask}
         onRequestAssignees={onRequestAssignees}

@@ -50,6 +50,13 @@ function websocketUrl(path: string, wsOrigin: string): string {
   }
 }
 
+/** Same as {@link websocketUrl} but hides query params (e.g. token) in UI. */
+function websocketUrlForDisplay(path: string, wsOrigin: string): string {
+  const full = websocketUrl(path, wsOrigin);
+  const q = full.indexOf("?");
+  return q >= 0 ? `${full.slice(0, q)}?[REDACTED]` : full;
+}
+
 export type FabricNetworkProps = {
   /** e.g. `127.0.0.1:8080` — Hub HTTP port in dev (not Vite). Omit to use `window.location.host`. */
   hubAddress?: string;
@@ -59,6 +66,9 @@ export type FabricNetworkProps = {
   showPeers?: boolean;
   /** Opens the dedicated peer details view (Network tab only). */
   onOpenPeer?: (peer: HubNetworkPeerRow, index: number) => void;
+  /** Primary organizer: publish tasks to the Fabric network for cross-family completion. */
+  fabricTasksPublic?: boolean;
+  onFabricTasksPublicChange?: (next: boolean) => void;
 };
 
 const PEER_POLL_MS = 8000;
@@ -68,6 +78,8 @@ export default function FabricNetwork({
   showDebug = true,
   showPeers = true,
   onOpenPeer,
+  fabricTasksPublic,
+  onFabricTasksPublicChange,
 }: FabricNetworkProps) {
   const { t } = useI18n();
   const wsOrigin = useMemo(() => parseHubWsOrigin(hubAddress?.trim()), [hubAddress]);
@@ -164,8 +176,24 @@ export default function FabricNetwork({
     [onPeerRowActivate],
   );
 
+  const showPublicToggle =
+    typeof fabricTasksPublic === "boolean" && typeof onFabricTasksPublicChange === "function";
+
   return (
     <div className="fabric-network-panel">
+      {showPublicToggle ? (
+        <div className="fabric-public-setting">
+          <label className="fabric-public-label">
+            <input
+              type="checkbox"
+              checked={fabricTasksPublic}
+              onChange={(e) => onFabricTasksPublicChange(e.target.checked)}
+            />
+            <span>{t("network.publicLabel")}</span>
+          </label>
+          <p className="section-hint fabric-public-hint">{t("network.publicHint")}</p>
+        </div>
+      ) : null}
       {showDebug ? (
         <div className="fabric-network-debug">
           <div>
@@ -177,7 +205,7 @@ export default function FabricNetwork({
           </div>
           {wsOrigin ? (
             <div className="fabric-network-debug-meta">
-              ws <code>{websocketUrl("/", wsOrigin)}</code>
+              ws <code>{websocketUrlForDisplay("/", wsOrigin)}</code>
             </div>
           ) : (
             <p className="fabric-network-debug-hint section-hint">Invalid hub address.</p>

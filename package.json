@@ -14,8 +14,9 @@
     "install:bitcoin-lightning": "node scripts/installBitcoinLightning.mjs",
     "report:install": "rm -rf node_modules && echo \"\n\" > package-lock.json && echo \"$ npm i\" > reports/install.log && npm i >> reports/install.log",
     "start": "cross-env NODE_ENV=production node server/api.mjs",
-    "test": "npm run test:ui",
+    "test": "npm run build && mocha \"tests/*.test.cjs\" --exit --timeout 180000",
     "test:ui": "npm run build && mocha tests/browser.familytasks.ui.test.cjs --exit --timeout 180000",
+    "test:wallet": "mocha tests/family.wallet.bitcoin.http.test.cjs --exit --timeout 120000",
     "coverage": "c8 npm test",
     "coverage:html": "npm run coverage && c8 report --reporter html"
   },

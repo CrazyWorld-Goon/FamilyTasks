@@ -263,7 +263,7 @@ export function usePersistedApp() {
       title: string,
       assignee: MemberId,
       slot: Task["slot"],
-      opts?: { recurrence?: "daily"; assignees?: MemberId[]; active?: boolean; plannedTime?: string },
+      opts?: { recurrence?: "daily"; assignees?: MemberId[]; active?: boolean; plannedTime?: string; fabricPublished?: boolean },
     ) => {
       const id = newFabricEntityIdHex();
       const normalizedAssignees = opts?.assignees?.length ? Array.from(new Set(opts.assignees)) : undefined;
@@ -279,6 +279,7 @@ export function usePersistedApp() {
         plannedTime: opts?.plannedTime,
         dueDate: todayKey(),
         recurrence: opts?.recurrence,
+        ...(opts?.fabricPublished ? { fabricPublished: true as const } : {}),
       };
       update((s) => ({ ...s, tasks: [task, ...s.tasks] }));
     },
@@ -307,6 +308,7 @@ export function usePersistedApp() {
         active?: boolean;
         plannedTime?: string;
         sharedAt?: string;
+        fabricPublished?: boolean;
       },
     ) => {
       const today = todayKey();
@@ -326,6 +328,9 @@ export function usePersistedApp() {
         if (patch.active !== undefined) next.active = patch.active;
         if (patch.plannedTime !== undefined) next.plannedTime = patch.plannedTime || undefined;
         if (patch.sharedAt !== undefined) next.sharedAt = patch.sharedAt || undefined;
+        if (patch.fabricPublished !== undefined) {
+          next.fabricPublished = patch.fabricPublished ? true : undefined;
+        }
         if (patch.notes !== undefined) {
           const n = patch.notes.trim();
           next.notes = n || undefined;
@@ -382,6 +387,16 @@ export function usePersistedApp() {
     }));
   }, [update]);
 
+  const setFabricTasksPublic = useCallback(
+    (next: boolean) => {
+      update((s) => ({
+        ...s,
+        family: { ...(s.family ?? { setupComplete: true }), fabricTasksPublic: next },
+      }));
+    },
+    [update],
+  );
+
   const completeFamilySetup = useCallback(
     async (input: {
       displayName: string;
@@ -389,6 +404,7 @@ export function usePersistedApp() {
       fullName: string;
       role: string;
       color: string;
+      fabricTasksPublic?: boolean;
     }): Promise<string> => {
       const s = stateRef.current;
       if (!s) return "";
@@ -418,6 +434,7 @@ export function usePersistedApp() {
           ownerUserId: id,
           displayName: input.displayName.trim(),
           setupCompletedAt,
+          ...(input.fabricTasksPublic === true ? { fabricTasksPublic: true } : {}),
         },
       };
 
@@ -511,6 +528,7 @@ export function usePersistedApp() {
     addMember,
     removeMember,
     completeFamilySetup,
+    setFabricTasksPublic,
     resetDemo,
   };
 }

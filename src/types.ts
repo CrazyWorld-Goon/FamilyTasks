@@ -60,6 +60,11 @@ export interface Task {
   shoppingItemId?: FabricActorId;
   /** Пояснения, что именно сделать сегодня. */
   notes?: string;
+  /**
+   * When family network sharing ({@link FamilyState.fabricTasksPublic}) is on, this opts the task
+   * into Fabric publication. Omitted/false = private to the household.
+   */
+  fabricPublished?: boolean;
 }
 
 export type ShoppingStatus = "open" | "bought";
@@ -85,6 +90,12 @@ export interface FamilyState {
   setupCompletedAt?: string;
   /** e.g. `legacy` migration */
   source?: string;
+  /**
+   * When true, the household opts in to publishing tasks on the Fabric network so other
+   * families can see and complete them (and this node can earn for work done elsewhere).
+   * Only the primary organizer should change this; stored with persisted family state.
+   */
+  fabricTasksPublic?: boolean;
 }
 
 export interface AppState {

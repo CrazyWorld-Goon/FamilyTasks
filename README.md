@@ -10,6 +10,15 @@
 
 ---
 
+## Quick Start
+```
+npm run build && npm start
+```
+
+See http://localhost:3900 for the setup.
+
+---
+
 ## Stack · Стек
 
 **English**

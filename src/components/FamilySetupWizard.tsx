@@ -10,6 +10,7 @@ export function FamilySetupWizard({
     fullName: string;
     role: string;
     color: string;
+    fabricTasksPublic: boolean;
   }) => void | Promise<void>;
 }) {
   const { t } = useI18n();
@@ -18,6 +19,7 @@ export function FamilySetupWizard({
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState("");
   const [color, setColor] = useState("#7b9eb8");
+  const [fabricTasksPublic, setFabricTasksPublic] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -34,6 +36,7 @@ export function FamilySetupWizard({
           fullName: fullName.trim() || sn,
           role: role.trim() || t("familySetup.defaultRole"),
           color,
+          fabricTasksPublic,
         }),
       );
     } finally {
@@ -104,6 +107,16 @@ export function FamilySetupWizard({
             {t("familySetup.tabColor")}
             <input type="color" value={color} onChange={(e) => setColor(e.target.value)} aria-label={t("familySetup.tabColor")} />
           </label>
+
+          <label className="family-setup-public">
+            <input
+              type="checkbox"
+              checked={fabricTasksPublic}
+              onChange={(e) => setFabricTasksPublic(e.target.checked)}
+            />
+            <span>{t("familySetup.publicLabel")}</span>
+          </label>
+          <p className="section-hint">{t("familySetup.publicHint")}</p>
 
           <button
             type="submit"

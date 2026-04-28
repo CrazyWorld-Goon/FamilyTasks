@@ -572,6 +572,41 @@ body {
   margin-top: 0.75rem;
 }
 
+.fabric-public-setting {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e8dfd3;
+}
+
+.fabric-public-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fabric-public-label input {
+  margin-top: 0.2rem;
+}
+
+.fabric-public-hint {
+  margin: 0.5rem 0 0 1.6rem !important;
+}
+
+.family-setup-public {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.family-setup-public input {
+  margin-top: 0.2rem;
+}
+
 .fabric-network-debug {
   font-size: 0.88rem;
   line-height: 1.45;
@@ -907,6 +942,30 @@ body {
   border-radius: 6px;
   margin: 0;
   vertical-align: middle;
+}
+
+.badge-fabric {
+  background: rgba(90, 120, 180, 0.18);
+  color: #334e7a;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+  margin: 0;
+  vertical-align: middle;
+}
+
+.task-fabric-publish {
+  margin-top: 0.4rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.task-fabric-publish input {
+  margin-top: 0.15rem;
 }
 
 .row-note {

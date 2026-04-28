@@ -49,6 +49,10 @@ function parseFamily(raw: unknown): FamilyState | null | undefined {
     if (typeof f.source !== "string") return null;
     out.source = f.source;
   }
+  if (f.fabricTasksPublic !== undefined) {
+    if (typeof f.fabricTasksPublic !== "boolean") return null;
+    out.fabricTasksPublic = f.fabricTasksPublic;
+  }
   return out;
 }
 
@@ -64,6 +68,7 @@ function parseTaskLike(raw: unknown): boolean {
   if (t.shoppingItemId !== undefined && (typeof t.shoppingItemId !== "string" || !isFabricActorId(t.shoppingItemId))) {
     return false;
   }
+  if (t.fabricPublished !== undefined && typeof t.fabricPublished !== "boolean") return false;
   return true;
 }
 
