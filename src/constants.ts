@@ -17,9 +17,9 @@ export const PETS: Pet[] = [
 
 /** Утро / день / вечер / почти ночь / время сна — границы в часах [start, end) по локальному времени */
 export const DAY_PHASE_HOURS: Record<DayPhase, { start: number; end: number }> = {
-  morning: { start: 5, end: 12 },
-  day: { start: 12, end: 17 },
-  evening: { start: 17, end: 22 },
+  morning: { start: 5, end: 11 },
+  day: { start: 11, end: 19 },
+  evening: { start: 19, end: 22 },
   night: { start: 22, end: 1 },
   sleep: { start: 1, end: 5 },
 };

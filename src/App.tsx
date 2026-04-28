@@ -1131,7 +1131,7 @@ function RowView({
           ) : null}
         </div>
       </div>
-      <div className="row-actions">
+      <div className="row-actions row-actions--task">
         {pet.status === "planned" ? (
           <>
             <span className="status-pill status-pill--pending" title={t("statusLabels.statusGeneric")}>
@@ -1151,7 +1151,7 @@ function RowView({
         ) : pet.status === "skipped" ? (
           <button
             type="button"
-            className="status-pill status-pill--done status-pill-button"
+            className="status-pill status-pill--done status-pill-button task-done-status-left"
             aria-label={t("petRow.skipAria")}
             onClick={() => onRequestUndoPet(pet)}
           >
@@ -1161,7 +1161,7 @@ function RowView({
         ) : (
           <button
             type="button"
-            className="status-pill status-pill--done status-pill-button"
+            className="status-pill status-pill--done status-pill-button task-done-status-left"
             aria-label={t("petRow.walkDoneAria")}
             onClick={() => onRequestUndoPet(pet)}
           >
