@@ -1,28 +1,36 @@
 {
-  "name": "dom-i-zadachi",
+  "name": "FamilyTasks",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/dev-runner.mjs",
-    "dev:legacy": "concurrently -k -n api,vite -c blue,magenta \"node server/api.mjs\" \"vite\"",
-    "start": "cross-env NODE_ENV=production node server/api.mjs",
-    "build": "vite build",
     "build:psite": "vite build --base=/dom-i-zadachi/ && node scripts/sync-to-psite.mjs",
-    "preview": "vite preview"
+    "build": "vite build",
+    "dev:legacy": "concurrently -k -n api,vite -c blue,magenta \"node server/api.mjs\" \"vite\"",
+    "dev": "node scripts/dev-runner.mjs",
+    "postinstall": "node scripts/ensureFabricCoreEnvelope.mjs",
+    "preview": "vite preview",
+    "install:puppeteer-chrome": "puppeteer browsers install chrome",
+    "report:install": "rm -rf node_modules && echo \"\n\" > package-lock.json && echo \"$ npm i\" > reports/install.log && npm i >> reports/install.log",
+    "start": "cross-env NODE_ENV=production node server/api.mjs",
+    "test:ui": "npm run build && mocha tests/browser.familytasks.ui.test.cjs --exit --timeout 180000"
   },
   "dependencies": {
-    "express": "^4.21.2",
+    "@fabric/hub": "FabricLabs/hub.fabric.pub#feature/sensemaker",
+    "ecpair": "=2.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@fabric/http": "FabricLabs/fabric-http#feature/v0.1.0-RC1",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
     "typescript": "~5.6.2",
-    "vite": "^5.4.10"
+    "vite": "^5.4.10",
+    "mocha": "^11.1.0",
+    "puppeteer": "=24.37.5"
   }
 }

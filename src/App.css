@@ -469,6 +469,38 @@ body {
   overflow-wrap: break-word;
 }
 
+.fabric-network-target {
+  margin: 0 0 0.75rem;
+}
+
+.fabric-network-target code {
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.fabric-network-panel {
+  margin-top: 0.75rem;
+}
+
+.fabric-network-debug {
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.fabric-network-debug code {
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+.fabric-network-debug-meta {
+  margin-top: 0.35rem;
+  color: var(--muted);
+}
+
+.fabric-network-debug-hint {
+  margin-top: 0.65rem !important;
+}
+
 .row {
   display: flex;
   flex-wrap: wrap;
@@ -1175,4 +1207,14 @@ body {
   .toast {
     animation: none;
   }
+}
+
+/* Fabric Hub embedding shell — neutral defaults so Hub outer margins never fight Family Tasks layout */
+fabric-interface.family-tasks-app,
+fabric-container#react-application,
+fabric-react-component.family-tasks-react-root {
+  display: block;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }

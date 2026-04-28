@@ -33,9 +33,16 @@
   "tabs": {
     "ariaSections": "Разделы",
     "all": "Все",
+    "network": "Сеть",
     "shop": "Купить",
     "tasks": "Задачи",
     "tasksTitle": "Список задач: правка, удаление"
+  },
+  "network": {
+    "aria": "Сеть Fabric",
+    "heading": "Сеть Fabric",
+    "hint": "WebSocket и сигнализация WebRTC идут в Fabric Hub, где же лежит сохранение задач (/api). В разработке Hub на другом порту, чем Vite — адрес задаёт npm run dev (VITE_HUB_ADDRESS).",
+    "sameOriginHint": "Если адрес не задан, используется origin этой страницы (удобно, когда приложение раздаёт сам Hub)."
   },
   "overview": {
     "ariaFamily": "Обзор семьи",

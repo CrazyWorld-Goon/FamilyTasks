@@ -51,7 +51,7 @@ export interface Task {
 
 export type ShoppingStatus = "open" | "bought";
 
-export type TabId = "all" | "shop" | MemberId;
+export type TabId = "all" | "network" | "shop" | MemberId;
 
 export interface ShoppingItem {
   id: string;

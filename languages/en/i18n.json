@@ -33,9 +33,16 @@
   "tabs": {
     "ariaSections": "Sections",
     "all": "All",
+    "network": "Network",
     "shop": "Buy",
     "tasks": "Tasks",
     "tasksTitle": "Tasks list: edit and delete"
+  },
+  "network": {
+    "aria": "Fabric network",
+    "heading": "Fabric network",
+    "hint": "WebSocket + WebRTC signaling uses the Fabric Hub that also hosts your saved tasks (/api). In development the Hub runs on a different port than Vite — use VITE_HUB_ADDRESS from npm run dev.",
+    "sameOriginHint": "Hub address defaults to this page’s origin when unset (works when the app is served by the Hub)."
   },
   "overview": {
     "ariaFamily": "Family overview",

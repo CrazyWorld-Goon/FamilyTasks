@@ -6,8 +6,15 @@ import react from "@vitejs/plugin-react";
 // allowedHosts: true снимает «Blocked request» для произвольного Host; только для разработки.
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  // В dev нужен корневой путь, чтобы туннель открывался по `/`.
-  base: command === "serve" ? "/" : "/components/dom-i-zadachi/",
+  resolve: {
+    dedupe: ["react", "react-dom"],
+  },
+  // Dev: `/`. Prod default `/` so `npm run build && npm start` serves from Hub HTTP root (see server/api.mjs).
+  // Override for hosted paths: `FABRIC_APP_BASE=/components/dom-i-zadachi/ vite build` or `vite build --base=…`.
+  base:
+    command === "serve"
+      ? "/"
+      : (process.env.FABRIC_APP_BASE?.trim() || "/"),
   server: {
     host: true,
     allowedHosts: true,

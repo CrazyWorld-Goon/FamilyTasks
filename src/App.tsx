@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MEMBERS } from "./constants";
-import { IconCart, IconCheck, IconClock, IconCat, IconDog, IconListChecks, IconPlus, IconSkip, IconTrash, IconUsers } from "./components/Icons";
+import { IconCart, IconCheck, IconClock, IconCat, IconDog, IconListChecks, IconNetwork, IconPlus, IconSkip, IconTrash, IconUsers } from "./components/Icons";
+import FabricNetwork from "./components/FabricNetwork";
 import { TasksManageDialog } from "./components/TasksManageDialog";
 import { useI18n } from "./i18n/I18nProvider";
 import type { Locale } from "./i18n/dicts";
@@ -125,6 +126,7 @@ export default function App() {
     setPetCompletion,
   } = usePersistedApp();
   const { t, locale, setLocale, formatAppError } = useI18n();
+  const hubAddress = import.meta.env.VITE_HUB_ADDRESS?.trim() ?? "";
   const now = useNowTicker(60_000);
   const [tab, setTab] = useState<TabId>(() => {
     const fallback: TabId = "all";
@@ -136,7 +138,7 @@ export default function App() {
       return fallback;
     }
     if (!raw) return fallback;
-    if (raw === "all" || raw === "shop") return raw;
+    if (raw === "all" || raw === "shop" || raw === "network") return raw;
     if (isMemberId(raw)) return raw;
     return fallback;
   });
@@ -388,6 +390,17 @@ export default function App() {
           </button>
           <button
             type="button"
+            className="tab tab-network"
+            role="tab"
+            aria-selected={tab === "network"}
+            onClick={() => setTab("network")}
+            style={{ borderColor: tab === "network" ? "var(--accent)" : undefined }}
+          >
+            <IconNetwork size={16} className="tab-icon" />
+            {t("tabs.network")}
+          </button>
+          <button
+            type="button"
             className="tab tab-shop"
             role="tab"
             aria-selected={tab === "shop"}
@@ -470,6 +483,23 @@ export default function App() {
             })}
           </div>
 
+        </section>
+      ) : tab === "network" ? (
+        <section aria-label={t("network.aria")} className="network-tab">
+          <div className="card fabric-network-card">
+            <h2>
+              <IconNetwork size={18} /> {t("network.heading")}
+            </h2>
+            <p className="section-hint">{t("network.hint")}</p>
+            {hubAddress ? (
+              <p className="fabric-network-target">
+                <code>{hubAddress}</code>
+              </p>
+            ) : (
+              <p className="section-hint">{t("network.sameOriginHint")}</p>
+            )}
+            <FabricNetwork hubAddress={hubAddress || undefined} showDebug />
+          </div>
         </section>
       ) : tab === "shop" ? (
         <section aria-label={t("shopTab.aria")} className="shop-tab">
