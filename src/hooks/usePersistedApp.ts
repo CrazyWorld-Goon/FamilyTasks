@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchPersistedState, putPersistedState } from "../api/persistClient";
+import type { AppI18nError } from "../i18n/appError";
 import { mergeShoppingWithServer, shoppingDataEqual } from "../logic/mergeShopping";
 import { normalizeShoppingTitle } from "../logic/shoppingList";
 import { createSeedState } from "../seed";
@@ -16,8 +17,8 @@ const SAVE_RETRY_MS = 15_000;
 
 export function usePersistedApp() {
   const [state, setState] = useState<PersistedState | null>(null);
-  const [initialError, setInitialError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [initialError, setInitialError] = useState<AppI18nError | null>(null);
+  const [saveError, setSaveError] = useState<AppI18nError | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSave = useRef<PersistedState | null>(null);
@@ -43,7 +44,7 @@ export function usePersistedApp() {
           setSaveError(null);
           clearSaveRetry();
         } else {
-          setSaveError(r.error);
+          setSaveError(r.err);
           if (!saveRetryInterval.current) {
             saveRetryInterval.current = setInterval(() => {
               const s = stateRef.current;
@@ -88,10 +89,13 @@ export function usePersistedApp() {
       skipNextSave.current = true;
       setState(seed);
       const put = await putPersistedState(seed);
-      if (!put.ok) setSaveError(put.error);
+      if (!put.ok) setSaveError(put.err);
+    } else if (!result.ok && "err" in result) {
+      setState(null);
+      setInitialError(result.err);
     } else if (!result.ok) {
       setState(null);
-      setInitialError("error" in result ? result.error : "Неизвестная ошибка");
+      setInitialError({ key: "errors.unknown" });
     }
     setHydrated(true);
   }, []);

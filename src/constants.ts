@@ -35,16 +35,16 @@ export const DEFAULT_PET_ASSIGNEE: Record<string, MemberId> = {
 
 function feedSlots(morning: number, evening: number): PetRoutineSlot[] {
   return [
-    { kind: "feed", label: "Покормить (утро)", minutes: morning * 60 + 30 },
-    { kind: "feed", label: "Покормить (вечер)", minutes: evening * 60 + 30 },
+    { kind: "feed", labelKey: "petRoutine.feedMorning", minutes: morning * 60 + 30 },
+    { kind: "feed", labelKey: "petRoutine.feedEvening", minutes: evening * 60 + 30 },
   ];
 }
 
 /** Прогулки: утро, 18:00, перед сном — только собаки */
 const dogWalks: PetRoutineSlot[] = [
-  { kind: "walk", label: "Прогулка (утро)", minutes: 8 * 60 },
-  { kind: "walk", label: "Прогулка (18:00)", minutes: 18 * 60 },
-  { kind: "walk", label: "Прогулка (перед сном)", minutes: 22 * 60 + 30 },
+  { kind: "walk", labelKey: "petRoutine.walkMorning", minutes: 8 * 60 },
+  { kind: "walk", labelKey: "petRoutine.walk1800", minutes: 18 * 60 },
+  { kind: "walk", labelKey: "petRoutine.walkBeforeSleep", minutes: 22 * 60 + 30 },
 ];
 
 export function routineForPet(pet: Pet): PetRoutineSlot[] {
@@ -56,11 +56,3 @@ export function routineForPet(pet: Pet): PetRoutineSlot[] {
 
 export const FEED_WINDOW_MIN = 60;
 
-/**
- * Подписи в «пилюле» ожидания; поменяйте под выбранные формулировки.
- * Варианты — в ответе/брендбуке, по смыслу: покупка vs дела/поручения.
- */
-export const PENDING_SHOPPING_LABEL = "Ожидает покупки";
-export const PENDING_ACTIVITY_LABEL = "Ожидает выполнения";
-/** Задача не закрыта до конца своего слота, показана в следующем окне */
-export const MISSED_SLOT_LABEL = "не сделано";

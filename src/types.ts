@@ -22,10 +22,10 @@ export interface Pet {
   species: PetSpecies;
 }
 
-/** Плановое время в минутах от полуночи */
+/** Плановое время в минутах от полуночи. `labelKey` — путь в i18n (например petRoutine.feedMorning). */
 export interface PetRoutineSlot {
   kind: PetCareKind;
-  label: string;
+  labelKey: string;
   minutes: number;
 }
 
