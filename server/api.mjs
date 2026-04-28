@@ -21,7 +21,6 @@ import path from "path";
 import process from "process";
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
-import { ensureFabricDocumentOfferEnvelope } from "../scripts/ensureFabricCoreEnvelope.mjs";
 import { loadFamilySettingsLocal } from "../scripts/familySettings.mjs";
 import {
   fabricDELETE,
@@ -42,8 +41,6 @@ import { mountBitcoinPriceRoute } from "./fabricPriceRates.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-
-ensureFabricDocumentOfferEnvelope(root);
 
 const require = createRequire(import.meta.url);
 const merge = require("lodash.merge");

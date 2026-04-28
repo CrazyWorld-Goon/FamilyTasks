@@ -8,7 +8,6 @@
     "build": "vite build",
     "dev:legacy": "concurrently -k -n api,vite -c blue,magenta \"node server/api.mjs\" \"vite\"",
     "dev": "node scripts/dev-runner.mjs",
-    "postinstall": "node scripts/ensureFabricCoreEnvelope.mjs",
     "preview": "vite preview",
     "install:puppeteer-chrome": "puppeteer browsers install chrome",
     "install:bitcoin-lightning": "node scripts/installBitcoinLightning.mjs",
