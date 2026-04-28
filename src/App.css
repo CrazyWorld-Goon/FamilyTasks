@@ -753,6 +753,11 @@ body {
   padding-bottom: 0;
 }
 
+.card-later .row:first-of-type {
+  border-top: 1px solid #f0e6da;
+  padding-top: 0.75rem;
+}
+
 .row-title {
   font-weight: 600;
   font-size: 0.95rem;
