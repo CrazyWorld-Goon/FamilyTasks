@@ -10,7 +10,7 @@
  *      NODE_ENV=production — recommended for `npm start`; required for missing-dist warning.
  *      FABRIC_APP_BASE — Vite build base (default `/` in vite.config); must match how `dist/` was built.
  *      HUB_STOCK_UI=1 — leave Hub’s default `/` shell (skip Family Tasks wiring).
- *      FABRIC_HUB_ROOT — optional path to hub.fabric.pub (see scripts/ensureFabricCoreEnvelope.mjs).
+ *      FABRIC_PUBLIC_HUB_ORIGIN — origin for forwarding `POST /api/public-faucet` to the public Hub (default https://hub.fabric.pub).
  *      `./settings/local.cjs` — Family Tasks overrides merged after `@fabric/hub/settings/local.js`
  *      (`http.port`, `name`, …); env `PORT` / `FABRIC_HUB_PORT` still wins when set.
  *      FAMILY_TASKS_DEV_HTTP_PORT — optional dev-runner-only preferred API port (defaults to `./settings/local.cjs` http.port).
@@ -38,6 +38,7 @@ import { createDefaultAppState } from "./defaultAppState.mjs";
 import { getOrCreateNodeMasterKey, readNodeMasterKeyMeta } from "./fabricNodeMasterKey.mjs";
 import { signFabricOwnerEnvelope } from "./fabricOwnerToken.mjs";
 import { isFabricActorId } from "./fabricActorIdentity.mjs";
+import { mountBitcoinPriceRoute } from "./fabricPriceRates.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
@@ -317,11 +318,59 @@ function mountFabricEndpoints(hub) {
   });
 }
 
+/** Forwards faucet requests so the SPA can avoid browser CORS to hub.fabric.pub. */
+function mountPublicFabricFaucetProxy(hub) {
+  const DEFAULT_ORIGIN = "https://hub.fabric.pub";
+  hub.http._addRoute("post", "/api/public-faucet", async (req, res) => {
+    try {
+      const base = String(process.env.FABRIC_PUBLIC_HUB_ORIGIN || DEFAULT_ORIGIN).replace(/\/$/, "");
+      const upstream = `${base}/services/bitcoin/faucet`;
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const address = String(body.address || body.to || "").trim();
+      let amountSats = Number(body.amountSats != null ? body.amountSats : NaN);
+      if (!Number.isFinite(amountSats) || amountSats <= 0) amountSats = 10000;
+      amountSats = Math.round(amountSats);
+
+      const upstreamRes = await fetch(upstream, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ address, amountSats }),
+      });
+
+      const text = await upstreamRes.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        return res
+          .status(upstreamRes.status >= 400 ? upstreamRes.status : 502)
+          .json({
+            status: "error",
+            message: "public_hub_response_not_json",
+            snippet: text.slice(0, 240),
+          });
+      }
+
+      res.status(upstreamRes.status).json(json);
+    } catch (e) {
+      res.status(502).json({
+        status: "error",
+        message: e && e.message ? String(e.message) : "public_faucet_forward_failed",
+      });
+    }
+  });
+}
+
 class FamilyTasksHub extends Hub {
   constructor(settings) {
     super(settings);
     mountAppStateRoutes(this);
     mountFabricEndpoints(this);
+    mountBitcoinPriceRoute(this);
+    mountPublicFabricFaucetProxy(this);
   }
 }
 
@@ -362,7 +411,7 @@ async function main() {
   console.log(`[family-tasks] ${mode}`);
   console.log(`[family-tasks] App state file: ${stateFile}`);
   console.log(`[family-tasks] Hub store: ${hubDataRoot}`);
-  console.log("[family-tasks] Fabric endpoints: GET /api/fabric/node-key · POST /api/fabric/issue-owner-token");
+  console.log("[family-tasks] Fabric endpoints: GET /api/fabric/node-key · POST /api/fabric/issue-owner-token · GET /api/price/btc · POST /api/public-faucet");
 }
 
 main().catch((err) => {

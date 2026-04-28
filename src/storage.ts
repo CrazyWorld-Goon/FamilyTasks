@@ -1,4 +1,4 @@
-import type { AppState, FamilyMember, FamilyState, TaskStatus } from "./types";
+import type { AppState, FamilyMember, FamilyState, PaymentProposal, TaskStatus } from "./types";
 import { isFabricActorId } from "./fabricIds";
 
 export interface PersistedState extends AppState {
@@ -41,6 +41,10 @@ function parseFamily(raw: unknown): FamilyState | null | undefined {
     if (typeof f.displayName !== "string") return null;
     out.displayName = f.displayName;
   }
+  if (f.description !== undefined) {
+    if (typeof f.description !== "string") return null;
+    out.description = f.description;
+  }
   if (f.setupCompletedAt !== undefined) {
     if (typeof f.setupCompletedAt !== "string") return null;
     out.setupCompletedAt = f.setupCompletedAt;
@@ -80,7 +84,44 @@ function parseShoppingLike(raw: unknown): boolean {
   if (typeof s.title !== "string") return false;
   if (typeof s.createdAt !== "string") return false;
   if (typeof s.status !== "string") return false;
+  if (s.budgetSats !== undefined) {
+    if (typeof s.budgetSats !== "number" || !Number.isFinite(s.budgetSats) || s.budgetSats < 0) return false;
+  }
   return true;
+}
+
+/** @returns null if invalid */
+function parsePaymentProposals(raw: unknown): PaymentProposal[] | null {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) return null;
+  const out: PaymentProposal[] = [];
+  for (const x of raw) {
+    if (!x || typeof x !== "object") return null;
+    const o = x as Record<string, unknown>;
+    if (o.type !== "PaymentProposal") return null;
+    if (typeof o.id !== "string" || !isFabricActorId(o.id)) return null;
+    if (typeof o.fromMemberId !== "string" || !isFabricActorId(o.fromMemberId)) return null;
+    if (typeof o.amountSats !== "number" || !Number.isFinite(o.amountSats) || o.amountSats < 0) return null;
+    if (typeof o.memo !== "string") return null;
+    if (o.shoppingItemId !== undefined && (typeof o.shoppingItemId !== "string" || !isFabricActorId(o.shoppingItemId))) {
+      return null;
+    }
+    if (o.status !== "pending" && o.status !== "approved" && o.status !== "rejected") return null;
+    if (typeof o.createdAt !== "string") return null;
+    if (o.decidedAt !== undefined && typeof o.decidedAt !== "string") return null;
+    out.push({
+      id: o.id,
+      type: "PaymentProposal",
+      fromMemberId: o.fromMemberId,
+      amountSats: Math.floor(o.amountSats),
+      memo: o.memo,
+      ...(o.shoppingItemId ? { shoppingItemId: o.shoppingItemId } : {}),
+      status: o.status,
+      createdAt: o.createdAt,
+      ...(o.decidedAt ? { decidedAt: o.decidedAt } : {}),
+    });
+  }
+  return out;
 }
 
 /** Проверка тела ответа API / восстановленного JSON — все сущности с id в форме Fabric Actor. */
@@ -111,10 +152,21 @@ export function parsePersistedState(raw: unknown): PersistedState | null {
   const users = parseUsers(p.users);
   if (users === null && p.users !== undefined) return null;
 
+  const paymentProposals = parsePaymentProposals(p.paymentProposals);
+  if (paymentProposals === null) return null;
+
+  if (users && users.length > 0) {
+    const um = new Set(users.map((u) => u.id));
+    for (const pr of paymentProposals) {
+      if (!um.has(pr.fromMemberId)) return null;
+    }
+  }
+
   if (family.setupComplete === false) {
     const u = users ?? [];
     if (u.length !== 0) return null;
     if (p.tasks.length !== 0 || p.shopping.length !== 0) return null;
+    if (paymentProposals.length !== 0) return null;
   }
 
   const base: PersistedState = {
@@ -122,6 +174,7 @@ export function parsePersistedState(raw: unknown): PersistedState | null {
     shopping: p.shopping,
     petCompletions: p.petCompletions && typeof p.petCompletions === "object" ? p.petCompletions : {},
     family,
+    paymentProposals,
   };
   if (users && users.length > 0) {
     base.users = users;

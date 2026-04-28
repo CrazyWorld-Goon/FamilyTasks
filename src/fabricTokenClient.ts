@@ -83,6 +83,19 @@ export function storeFabricOwnerToken(userId: FabricActorId, envelope: FabricOwn
   localStorage.setItem(FABRIC_OWNER_TOKEN_LS_KEY, JSON.stringify(row));
 }
 
+/** Download a JSON copy of the stored owner envelope (same file as onboarding backup). */
+export function downloadStoredOwnerTokenBackup(ownerUserId: FabricActorId): boolean {
+  const s = getStoredFabricOwnerToken();
+  if (!s || s.userId !== ownerUserId) return false;
+  const blob = new Blob([JSON.stringify(s.envelope, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `familytasks-owner-token-${ownerUserId.slice(0, 8)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  return true;
+}
+
 /** True when this browser holds the hub-signed owner envelope for the household owner (network admin UI). */
 export function hasOwnerAdminTokenForUser(ownerUserId: string | undefined): boolean {
   if (!ownerUserId || !/^[a-f0-9]{64}$/.test(ownerUserId)) return false;

@@ -195,6 +195,32 @@ export function validatePersistedDocument(doc) {
     if (typeof o.title !== "string") return false;
     if (typeof o.createdAt !== "string") return false;
     if (typeof o.status !== "string") return false;
+    if (o.budgetSats !== undefined) {
+      const b = Number(o.budgetSats);
+      if (!Number.isFinite(b) || b < 0 || b > Number.MAX_SAFE_INTEGER) return false;
+    }
+  }
+  if (doc.paymentProposals != null) {
+    if (!Array.isArray(doc.paymentProposals)) return false;
+    for (const pr of doc.paymentProposals) {
+      if (!pr || typeof pr !== "object") return false;
+      const p = /** @type {Record<string, unknown>} */ (pr);
+      if (p.type !== "PaymentProposal") return false;
+      if (typeof p.id !== "string" || !isFabricActorId(p.id)) return false;
+      if (typeof p.fromMemberId !== "string" || !userIds.has(p.fromMemberId)) return false;
+      const amt = Number(p.amountSats);
+      if (!Number.isFinite(amt) || amt < 0) return false;
+      if (typeof p.memo !== "string") return false;
+      if (
+        p.shoppingItemId !== undefined &&
+        (typeof p.shoppingItemId !== "string" || !isFabricActorId(p.shoppingItemId))
+      ) {
+        return false;
+      }
+      if (p.status !== "pending" && p.status !== "approved" && p.status !== "rejected") return false;
+      if (typeof p.createdAt !== "string") return false;
+      if (p.decidedAt !== undefined && typeof p.decidedAt !== "string") return false;
+    }
   }
   if (doc.petCompletions != null && typeof doc.petCompletions !== "object") return false;
   return true;

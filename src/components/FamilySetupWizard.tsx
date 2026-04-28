@@ -48,7 +48,7 @@ export function FamilySetupWizard({
     <div className="app-shell family-setup">
       <header className="app-header">
         <div className="brand">
-          <h1>{t("brand.title")}</h1>
+          <h1 className="brand-title">{t("brand.title")}</h1>
           <p className="tagline">{t("familySetup.subtitle")}</p>
         </div>
       </header>

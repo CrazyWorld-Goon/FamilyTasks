@@ -6,8 +6,9 @@ import { mergeShoppingWithServer, shoppingDataEqual } from "../logic/mergeShoppi
 import { normalizeShoppingTitle } from "../logic/shoppingList";
 import { createSeedState } from "../seed";
 import type { PersistedState } from "../storage";
-import type { FamilyMember, MemberId, ShoppingItem, Task, TaskStatus } from "../types";
+import type { FamilyMember, MemberId, PaymentProposal, ShoppingItem, Task, TaskStatus } from "../types";
 import { newFabricEntityIdHex, isFabricActorId } from "../fabricIds";
+import { logFabricPaymentProposal } from "../fabricPaymentProposal";
 
 function todayKey(d = new Date()): string {
   return d.toISOString().slice(0, 10);
@@ -214,14 +215,18 @@ export function usePersistedApp() {
     }));
   }, [update]);
 
-  const addShopping = useCallback((title: string, assignee: MemberId) => {
+  const addShopping = useCallback((title: string, assignee: MemberId, opts?: { budgetSats?: number }) => {
     const id = newFabricEntityIdHex();
+    const bs = opts?.budgetSats;
+    const budgetSats =
+      bs !== undefined && Number.isFinite(bs) && Math.floor(bs) > 0 ? Math.floor(bs) : undefined;
     const item: ShoppingItem = {
       id,
       title: title.trim(),
       assignee,
       status: "open",
       createdAt: todayKey(),
+      ...(budgetSats ? { budgetSats } : {}),
     };
     update((s) => ({ ...s, shopping: [item, ...s.shopping] }));
   }, [update]);
@@ -397,6 +402,25 @@ export function usePersistedApp() {
     [update],
   );
 
+  const setFamilyProfile = useCallback(
+    (input: { displayName?: string; description?: string }) => {
+      update((s) => {
+        const fam = s.family ?? { setupComplete: true };
+        const next: typeof fam = { ...fam };
+        if (input.displayName !== undefined) {
+          const v = input.displayName.trim();
+          next.displayName = v.length > 0 ? v : undefined;
+        }
+        if (input.description !== undefined) {
+          const v = input.description.trim();
+          next.description = v.length > 0 ? v : undefined;
+        }
+        return { ...s, family: next };
+      });
+    },
+    [update],
+  );
+
   const completeFamilySetup = useCallback(
     async (input: {
       displayName: string;
@@ -482,6 +506,65 @@ export function usePersistedApp() {
     [update],
   );
 
+  const patchShoppingItem = useCallback((shoppingId: string, patch: { budgetSats?: number }) => {
+    update((s) => ({
+      ...s,
+      shopping: s.shopping.map((i) => {
+        if (i.id !== shoppingId) return i;
+        if (patch.budgetSats === undefined) return i;
+        const v = Math.floor(patch.budgetSats);
+        if (!Number.isFinite(v) || v <= 0) {
+          const { budgetSats: _b, ...rest } = i;
+          return rest as ShoppingItem;
+        }
+        return { ...i, budgetSats: v };
+      }),
+    }));
+  }, [update]);
+
+  const addPaymentProposal = useCallback(
+    (input: {
+      fromMemberId: MemberId;
+      amountSats: number;
+      memo: string;
+      shoppingItemId?: MemberId;
+    }) => {
+      const amount = Math.floor(input.amountSats);
+      if (!Number.isFinite(amount) || amount <= 0) return;
+      const id = newFabricEntityIdHex();
+      const proposal: PaymentProposal = {
+        id,
+        type: "PaymentProposal",
+        fromMemberId: input.fromMemberId,
+        amountSats: amount,
+        memo: input.memo.trim(),
+        ...(input.shoppingItemId ? { shoppingItemId: input.shoppingItemId } : {}),
+        status: "pending",
+        createdAt: new Date().toISOString(),
+      };
+      logFabricPaymentProposal(proposal);
+      update((s) => ({
+        ...s,
+        paymentProposals: [...(s.paymentProposals ?? []), proposal],
+      }));
+    },
+    [update],
+  );
+
+  const setPaymentProposalStatus = useCallback(
+    (proposalId: string, status: "approved" | "rejected") => {
+      update((s) => ({
+        ...s,
+        paymentProposals: (s.paymentProposals ?? []).map((p) =>
+          p.id === proposalId && p.status === "pending"
+            ? { ...p, status, decidedAt: new Date().toISOString() }
+            : p,
+        ),
+      }));
+    },
+    [update],
+  );
+
   const removeMember = useCallback(
     (id: MemberId) => {
       update((s) => {
@@ -517,6 +600,7 @@ export function usePersistedApp() {
     markShoppingBought,
     setShoppingStatus,
     addShopping,
+    patchShoppingItem,
     reopenShoppingItem,
     removeShoppingItem,
     removeBoughtHistoryByTitleKey,
@@ -529,6 +613,9 @@ export function usePersistedApp() {
     removeMember,
     completeFamilySetup,
     setFabricTasksPublic,
+    setFamilyProfile,
+    addPaymentProposal,
+    setPaymentProposalStatus,
     resetDemo,
   };
 }

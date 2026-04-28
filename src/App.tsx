@@ -1,15 +1,22 @@
+"use strict";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_MEMBERS } from "./constants";
-import { IconCart, IconCheck, IconClock, IconCat, IconDog, IconListChecks, IconNetwork, IconPlus, IconSkip, IconTrash, IconUsers } from "./components/Icons";
-import { FamilyMembersPanel } from "./components/FamilyMembersPanel";
+import { IconCart, IconCheck, IconClock, IconCat, IconDog, IconHouse, IconListChecks, IconNetwork, IconPlus, IconShield, IconSkip, IconTrash, IconUsers } from "./components/Icons";
+import { FamilyManagementPanel } from "./components/FamilyManagementPanel";
 import { FamilySetupWizard } from "./components/FamilySetupWizard";
+import { FundShoppingInline } from "./components/FundShoppingInline";
 import { OwnerTokenBackup } from "./components/OwnerTokenBackup";
+import { OwnerAdminPanel } from "./components/OwnerAdminPanel";
+import { RequestPayoutDialog } from "./components/RequestPayoutDialog";
 import FabricNetwork from "./components/FabricNetwork";
+import { HeaderBtcSpot } from "./components/HeaderBtcSpot";
 import PeerView from "./components/PeerView";
 import { TasksManageDialog } from "./components/TasksManageDialog";
 import { useI18n } from "./i18n/I18nProvider";
 import { memberRoleLabel } from "./i18n/memberRole";
-import type { Locale } from "./i18n/dicts";
+import { MESSAGES, type Locale } from "./i18n/dicts";
+import { translate } from "./i18n/translate";
 import {
   clearPendingOwnerToken,
   getPendingOwnerTokenUserId,
@@ -35,7 +42,7 @@ function dateKey(d = new Date()): string {
 }
 
 function isMemberId(tab: TabId): tab is MemberId {
-  return tab !== "all" && tab !== "network" && tab !== "shop" && !isPeerViewTab(tab);
+  return tab !== "all" && tab !== "family" && tab !== "network" && tab !== "shop" && !isPeerViewTab(tab);
 }
 
 type Row =
@@ -58,6 +65,10 @@ type RequestAssigneesState = {
   selected: MemberId[];
   error: string | null;
 };
+
+type PayoutDialogState =
+  | null
+  | { fromMemberId: MemberId; shoppingItemId?: MemberId; hint?: string };
 
 const LATER_PHASE_ORDER: Record<Exclude<TimeSlot, "any"> | "sleep" | "any", number> = {
   morning: 0,
@@ -147,6 +158,10 @@ export default function App() {
     setPetCompletion,
     completeFamilySetup,
     setFabricTasksPublic,
+    setFamilyProfile,
+    patchShoppingItem,
+    addPaymentProposal,
+    setPaymentProposalStatus,
   } = usePersistedApp();
   const handleFamilySetupComplete = useCallback(
     async (data: {
@@ -176,14 +191,16 @@ export default function App() {
       return fallback;
     }
     if (!raw) return fallback;
-    if (raw === "all" || raw === "shop" || raw === "network") return raw;
+    if (raw === "all" || raw === "shop" || raw === "network" || raw === "family") return raw;
     if (typeof raw === "string" && raw.startsWith("network-peer:") && decodePeerViewTab(raw)) return raw as TabId;
     if (DEFAULT_MEMBERS.some((m) => m.id === raw)) return raw as TabId;
     return fallback;
   });
   const [taskBoardOpen, setTaskBoardOpen] = useState(false);
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [shopDraft, setShopDraft] = useState("");
+  const [shopBudgetDraft, setShopBudgetDraft] = useState("");
   const [shopAssignee, setShopAssignee] = useState<MemberId>(() => DEFAULT_MEMBERS[0]?.id ?? "");
   const [taskDraft, setTaskDraft] = useState("");
   const [taskSlot, setTaskSlot] = useState<TimeSlot>("any");
@@ -194,8 +211,25 @@ export default function App() {
   const [doneConfirm, setDoneConfirm] = useState<DoneConfirmState | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState<RemoveConfirmState | null>(null);
   const [requestAssignees, setRequestAssignees] = useState<RequestAssigneesState | null>(null);
+  const [payoutDialog, setPayoutDialog] = useState<PayoutDialogState>(null);
   const knownTaskIdsRef = useRef<Set<string> | null>(null);
   const flashTimeoutsRef = useRef<number[]>([]);
+
+  useEffect(() => {
+    const baseTitle = translate(MESSAGES[locale], "meta.title");
+    const baseDesc = translate(MESSAGES[locale], "meta.description");
+    const meta = document.querySelector('meta[name="description"]');
+    const fam = state?.family;
+    const name = fam?.displayName?.trim();
+    const configured = fam?.setupComplete === true;
+    if (configured && name) {
+      document.title = `${name} · ${baseTitle}`;
+      if (meta) meta.setAttribute("content", `${name} — ${baseDesc}`);
+    } else {
+      document.title = baseTitle;
+      if (meta) meta.setAttribute("content", baseDesc);
+    }
+  }, [locale, state]);
 
   useEffect(() => {
     try {
@@ -217,11 +251,12 @@ export default function App() {
   useEffect(() => {
     if (!ready || !state) return;
     if (members.length === 0) {
-      if (tab !== "all" && tab !== "network" && tab !== "shop" && !isPeerViewTab(tab)) setTab("all");
+      if (tab !== "all" && tab !== "network" && tab !== "shop" && tab !== "family" && !isPeerViewTab(tab)) setTab("all");
       return;
     }
     if (
       tab !== "all" &&
+      tab !== "family" &&
       tab !== "network" &&
       tab !== "shop" &&
       !isPeerViewTab(tab) &&
@@ -283,6 +318,21 @@ export default function App() {
   const showToast = useCallback((msg: string) => {
     setToast(msg);
   }, []);
+
+  const onSaveFamilyProfile = useCallback(
+    (next: { displayName: string; description: string }) => {
+      setFamilyProfile({ displayName: next.displayName, description: next.description });
+      showToast(t("familyManage.toastSaved"));
+    },
+    [setFamilyProfile, showToast, t],
+  );
+
+  const patchShoppingBudget = useCallback(
+    (id: string, sats: number) => {
+      patchShoppingItem(id, { budgetSats: sats });
+    },
+    [patchShoppingItem],
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -360,6 +410,36 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [requestAssignees]);
 
+  const openPayoutForShop = useCallback((item: ShoppingItem) => {
+    setPayoutDialog({
+      fromMemberId: item.assignee,
+      shoppingItemId: item.id,
+      hint: t("payout.contextShop", { title: item.title }),
+    });
+  }, [t]);
+
+  const openPayoutForMember = useCallback((memberId: MemberId) => {
+    setPayoutDialog({ fromMemberId: memberId, hint: t("payout.contextMember") });
+  }, [t]);
+
+  const onConfirmPayout = useCallback(
+    (input: {
+      fromMemberId: MemberId;
+      amountSats: number;
+      memo: string;
+      shoppingItemId?: MemberId;
+    }) => {
+      addPaymentProposal({
+        fromMemberId: input.fromMemberId,
+        amountSats: input.amountSats,
+        memo: input.memo,
+        shoppingItemId: input.shoppingItemId,
+      });
+      showToast(t("payout.toastSent"));
+    },
+    [addPaymentProposal, showToast, t],
+  );
+
   if (!ready || !state) {
     if (initialError) {
       const syncBoldKey =
@@ -424,6 +504,7 @@ export default function App() {
       <>
         <OwnerTokenBackup
           ownerUserId={ownerUserId}
+          familyHeading={state.family?.displayName?.trim() || undefined}
           onAcknowledge={() => {
             clearPendingOwnerToken();
             setOwnerTokenAckBump((n) => n + 1);
@@ -452,7 +533,9 @@ export default function App() {
   const canAccessNetwork = hasOwnerAdminTokenForUser(ownerUserId);
   const effectiveTab: TabId =
     (tab === "network" || isPeerViewTab(tab)) && !canAccessNetwork ? "all" : tab;
+  const ownerMember = ownerUserId ? members.find((m) => m.id === ownerUserId) : undefined;
   const activeMember = isMemberId(effectiveTab) ? effectiveTab : null;
+  const paymentProposals = state.paymentProposals ?? [];
 
   const rowsForMember = (member: MemberId): { now: Row[]; later: Row[] } => {
     const tasks = state.tasks.filter(
@@ -523,8 +606,15 @@ export default function App() {
   const submitShop = (e: React.FormEvent) => {
     e.preventDefault();
     if (!shopDraft.trim()) return;
-    addShopping(shopDraft, shopAssignee);
+    const raw = shopBudgetDraft.trim();
+    let opts: { budgetSats?: number } | undefined;
+    if (raw) {
+      const n = Number(raw);
+      if (Number.isFinite(n) && Math.floor(n) > 0) opts = { budgetSats: Math.floor(n) };
+    }
+    addShopping(shopDraft, shopAssignee, opts);
     setShopDraft("");
+    setShopBudgetDraft("");
     showToast(t("toasts.shopAdded"));
   };
 
@@ -545,6 +635,8 @@ export default function App() {
     showToast(daily ? t("toasts.taskAddedDaily") : t("toasts.taskAdded"));
   };
 
+  const familyDisplayHeading = state.family?.displayName?.trim() || null;
+
   return (
     <div className="app-shell">
       {saveError ? (
@@ -557,23 +649,55 @@ export default function App() {
       ) : null}
       <header className="app-header">
         <div className="brand">
-          <img src={publicAsset("images/house.svg")} alt="" width={48} height={48} />
+          <button
+            type="button"
+            className="brand-home-btn"
+            onClick={() => setTab("all")}
+            aria-label={t("brand.goHome")}
+            title={t("brand.goHome")}
+          >
+            <img src={publicAsset("images/house.svg")} alt="" width={48} height={48} />
+          </button>
           <div>
-            <h1>{t("brand.title")}</h1>
+            <h1 className={familyDisplayHeading ? "brand-title brand-title--family" : "brand-title"}>
+              {familyDisplayHeading ?? t("brand.title")}
+            </h1>
             <p>{t("brand.tagline")}</p>
+            {state.family?.description?.trim() ? (
+              <p className="brand-family-desc">{state.family.description.trim()}</p>
+            ) : null}
           </div>
         </div>
         <div className="header-actions">
-          <label className="lang-picker">
-            <span className="visually-hidden">{t("lang.label")}</span>
-            <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)} aria-label={t("lang.label")}>
-              <option value="en">{t("lang.en")}</option>
-              <option value="ru">{t("lang.ru")}</option>
-            </select>
-          </label>
-          <div className="phase-pill" title={phaseTimeRange(phase)}>
-            <IconClock size={16} />
-            {t(`phase.${phase}`)}
+          <div className="header-actions-row header-actions-row--top">
+            <HeaderBtcSpot
+              fiatSpotLabel={(amount) => t("wallet.fiatSpotRate", { amount })}
+              loadingLabel={t("header.btcSpotLoading")}
+            />
+            <label className="lang-picker">
+              <span className="visually-hidden">{t("lang.label")}</span>
+              <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)} aria-label={t("lang.label")}>
+                <option value="en">{t("lang.en")}</option>
+                <option value="ru">{t("lang.ru")}</option>
+              </select>
+            </label>
+          </div>
+          <div className="header-actions-toolbar">
+            <div className="phase-pill" title={phaseTimeRange(phase)}>
+              <IconClock size={16} />
+              {t(`phase.${phase}`)}
+            </div>
+            {canAccessNetwork && ownerUserId ? (
+              <button
+                type="button"
+                className="btn btn-ghost header-admin-btn"
+                onClick={() => setAdminPanelOpen(true)}
+                title={t("adminPanel.openTitle")}
+                aria-label={t("adminPanel.openAria")}
+              >
+                <IconShield size={22} />
+              </button>
+            ) : null}
           </div>
         </div>
       </header>
@@ -583,6 +707,18 @@ export default function App() {
           <button type="button" className="tab tab-all" role="tab" aria-selected={effectiveTab === "all"} onClick={() => setTab("all")}>
             <IconUsers size={16} className="tab-icon" />
             {t("tabs.all")}
+          </button>
+          <button
+            type="button"
+            className="tab tab-family"
+            role="tab"
+            aria-selected={effectiveTab === "family"}
+            onClick={() => setTab("family")}
+            title={t("tabs.familyTitle")}
+            style={{ borderColor: effectiveTab === "family" ? "var(--accent-2)" : undefined }}
+          >
+            <IconHouse size={16} className="tab-icon" />
+            {t("tabs.family")}
           </button>
           {canAccessNetwork ? (
             <button
@@ -689,9 +825,27 @@ export default function App() {
             })}
           </div>
 
-          <FamilyMembersPanel members={members} onAdd={addMember} onRemove={removeMember} />
-
         </section>
+      ) : effectiveTab === "family" ? (
+        <FamilyManagementPanel
+          displayName={state.family?.displayName ?? ""}
+          description={state.family?.description ?? ""}
+          members={members}
+          onSaveProfile={onSaveFamilyProfile}
+          onAddMember={addMember}
+          onRemoveMember={removeMember}
+          paymentProposals={paymentProposals}
+          ownerUserId={ownerUserId}
+          canDecideProposals={canAccessNetwork}
+          onApproveProposal={(id) => {
+            setPaymentProposalStatus(id, "approved");
+            showToast(t("payout.toastDecidedApprove"));
+          }}
+          onRejectProposal={(id) => {
+            setPaymentProposalStatus(id, "rejected");
+            showToast(t("payout.toastDecidedReject"));
+          }}
+        />
       ) : effectiveTab === "network" || isPeerViewTab(effectiveTab) ? (
         <section aria-label={t("network.aria")} className="network-tab">
           <div className="card fabric-network-card">
@@ -741,6 +895,9 @@ export default function App() {
                   dayKey={dk}
                   viewerMember={undefined}
                   asOf={now}
+                  ownerUserId={ownerUserId}
+                  patchShoppingBudget={patchShoppingBudget}
+                  onRequestPayoutShop={openPayoutForShop}
                   onSetTaskNotes={setTaskNotes}
                   onDoneTask={onDoneTask}
                   onDonePet={onDonePet}
@@ -815,6 +972,14 @@ export default function App() {
                   placeholder={t("shopTab.placeholderNewItem")}
                   aria-label={t("shopTab.ariaNewItem")}
                 />
+                <input
+                  inputMode="numeric"
+                  className="shop-budget-input"
+                  value={shopBudgetDraft}
+                  onChange={(e) => setShopBudgetDraft(e.target.value)}
+                  placeholder={t("shopTab.budgetPlaceholder")}
+                  aria-label={t("shopTab.budgetAria")}
+                />
                 <select value={shopAssignee} onChange={(e) => setShopAssignee(e.target.value as MemberId)} aria-label={t("shopTab.ariaAssigneeToTasks")}>
                   {members.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -849,6 +1014,10 @@ export default function App() {
           onRequestAssignees={onRequestTaskAssignees}
           onRequestUndoShopping={onRequestUndoShopping}
           onRemoveShop={onRemoveShop}
+          ownerUserId={ownerUserId}
+          patchShoppingBudget={patchShoppingBudget}
+          onRequestPayoutShop={openPayoutForShop}
+          onRequestPayoutMember={openPayoutForMember}
           taskDraft={taskDraft}
           setTaskDraft={setTaskDraft}
           taskSlot={taskSlot}
@@ -1028,6 +1197,41 @@ export default function App() {
 
       {toast ? <div className="toast" role="status">{toast}</div> : null}
 
+      {payoutDialog ? (
+        <RequestPayoutDialog
+          open
+          onClose={() => setPayoutDialog(null)}
+          fromMemberId={payoutDialog.fromMemberId}
+          shoppingItemId={payoutDialog.shoppingItemId}
+          contextHint={payoutDialog.hint}
+          onSubmit={onConfirmPayout}
+        />
+      ) : null}
+
+      {canAccessNetwork && ownerUserId ? (
+        <OwnerAdminPanel
+          open={adminPanelOpen}
+          onClose={() => setAdminPanelOpen(false)}
+          ownerUserId={ownerUserId}
+          ownerShortName={ownerMember?.shortName ?? "—"}
+          displayName={state.family?.displayName}
+          fabricTasksPublic={Boolean(state.family?.fabricTasksPublic)}
+          onFabricTasksPublicChange={setFabricTasksPublic}
+          onGoToNetwork={() => setTab("network")}
+          paymentProposals={paymentProposals}
+          members={members}
+          canDecideProposals={canAccessNetwork}
+          onApproveProposal={(id) => {
+            setPaymentProposalStatus(id, "approved");
+            showToast(t("payout.toastDecidedApprove"));
+          }}
+          onRejectProposal={(id) => {
+            setPaymentProposalStatus(id, "rejected");
+            showToast(t("payout.toastDecidedReject"));
+          }}
+        />
+      ) : null}
+
       <TasksManageDialog
         open={taskBoardOpen}
         onClose={() => setTaskBoardOpen(false)}
@@ -1101,6 +1305,10 @@ function PersonSection({
   onRequestAssignees,
   onRequestUndoShopping,
   onRemoveShop,
+  ownerUserId,
+  patchShoppingBudget,
+  onRequestPayoutShop,
+  onRequestPayoutMember,
   taskDraft,
   setTaskDraft,
   taskSlot,
@@ -1132,6 +1340,10 @@ function PersonSection({
   onRequestAssignees: (t: Task) => void;
   onRequestUndoShopping: (s: ShoppingItem) => void;
   onRemoveShop: (s: ShoppingItem) => void;
+  ownerUserId?: MemberId;
+  patchShoppingBudget: (id: string, sats: number) => void;
+  onRequestPayoutShop: (item: ShoppingItem) => void;
+  onRequestPayoutMember: (memberId: MemberId) => void;
   taskDraft: string;
   setTaskDraft: (s: string) => void;
   taskSlot: TimeSlot;
@@ -1161,6 +1373,13 @@ function PersonSection({
         <p className="section-hint">
           {t("personView.personalHint")} <strong>{t(`phase.${phase}`)}</strong>
         </p>
+        {ownerUserId && m.id !== ownerUserId ? (
+          <p className="person-payout-actions">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onRequestPayoutMember(m.id)}>
+              {t("payout.requestFromOrganizer")}
+            </button>
+          </p>
+        ) : null}
       </div>
 
       <div className="card">
@@ -1198,6 +1417,9 @@ function PersonSection({
               onRequestAssignees={onRequestAssignees}
               onRequestUndoShopping={onRequestUndoShopping}
               onRemoveShop={onRemoveShop}
+              ownerUserId={ownerUserId}
+              patchShoppingBudget={patchShoppingBudget}
+              onRequestPayoutShop={onRequestPayoutShop}
             />
           ))
         )}
@@ -1236,6 +1458,9 @@ function PersonSection({
               onRequestAssignees={onRequestAssignees}
               onRequestUndoShopping={onRequestUndoShopping}
               onRemoveShop={onRemoveShop}
+              ownerUserId={ownerUserId}
+              patchShoppingBudget={patchShoppingBudget}
+              onRequestPayoutShop={onRequestPayoutShop}
             />
           ))
         )}
@@ -1438,6 +1663,9 @@ function RowView({
   onRequestAssignees,
   onRequestUndoShopping,
   onRemoveShop,
+  ownerUserId,
+  patchShoppingBudget,
+  onRequestPayoutShop,
 }: {
   row: Row;
   members: FamilyMember[];
@@ -1457,15 +1685,20 @@ function RowView({
   onRequestAssignees: (t: Task) => void;
   onRequestUndoShopping: (s: ShoppingItem) => void;
   onRemoveShop?: (s: ShoppingItem) => void;
+  ownerUserId?: MemberId;
+  patchShoppingBudget?: (id: string, sats: number) => void;
+  onRequestPayoutShop?: (item: ShoppingItem) => void;
 }) {
   const { t } = useI18n();
   if (row.kind === "shop") {
     const { item } = row;
     const isBought = item.status === "bought";
     const who = members.find((m) => m.id === item.assignee);
+    const showPayoutBtn =
+      Boolean(onRequestPayoutShop) && !isBought && (!ownerUserId || item.assignee !== ownerUserId);
     return (
       <div className={isBought ? "row row--shop-bought" : "row row--shop-open"}>
-        <div>
+        <div className="row-shop-body">
           <div className="row-title">
             <IconCart size={16} className="row-icon row-icon--shop" />
             {item.title}
@@ -1480,6 +1713,17 @@ function RowView({
               t("shopRow.familyFallback")
             )}
           </div>
+          {item.budgetSats != null && item.budgetSats > 0 ? (
+            <div className="shop-budget-badge">{t("shopRow.budgetSet", { n: item.budgetSats })}</div>
+          ) : null}
+          {!isBought && patchShoppingBudget ? (
+            <FundShoppingInline item={item} onPatchBudget={patchShoppingBudget} />
+          ) : null}
+          {showPayoutBtn ? (
+            <button type="button" className="btn btn-secondary btn-sm shop-row-payout" onClick={() => onRequestPayoutShop!(item)}>
+              {t("payout.requestForBuy")}
+            </button>
+          ) : null}
         </div>
         <div className="row-actions">
           {isBought ? (

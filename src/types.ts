@@ -69,7 +69,7 @@ export interface Task {
 
 export type ShoppingStatus = "open" | "bought";
 
-export type TabId = "all" | "network" | "shop" | MemberId | PeerViewTabId;
+export type TabId = "all" | "family" | "network" | "shop" | MemberId | PeerViewTabId;
 
 export interface ShoppingItem {
   id: FabricActorId;
@@ -80,12 +80,31 @@ export interface ShoppingItem {
   createdAt: string;
   /** Когда отметили «куплено» (YYYY-MM-DD), для сортировки */
   boughtAt?: string;
+  /** Optional planned spend for this line (satoshis). */
+  budgetSats?: number;
+}
+
+/** Organizer-reviewed payout request; persisted as a Fabric-shaped household message. */
+export type PaymentProposalStatus = "pending" | "approved" | "rejected";
+
+export interface PaymentProposal {
+  id: FabricActorId;
+  type: "PaymentProposal";
+  fromMemberId: MemberId;
+  amountSats: number;
+  memo: string;
+  shoppingItemId?: FabricActorId;
+  status: PaymentProposalStatus;
+  createdAt: string;
+  decidedAt?: string;
 }
 
 export interface FamilyState {
   setupComplete: boolean;
   ownerUserId?: FabricActorId;
   displayName?: string;
+  /** Household notes shown on Family Management; optional. */
+  description?: string;
   /** ISO timestamp when onboarding finished */
   setupCompletedAt?: string;
   /** e.g. `legacy` migration */
@@ -101,6 +120,8 @@ export interface FamilyState {
 export interface AppState {
   tasks: Task[];
   shopping: ShoppingItem[];
+  /** Fabric-style payout messages awaiting organizer decision. */
+  paymentProposals?: PaymentProposal[];
   /** Fabric Hub–aligned household lifecycle; one logical family per node. */
   family?: FamilyState;
   /** Family members (persisted). When empty, clients fall back to `DEFAULT_MEMBERS` in `constants.ts` unless {@link FamilyState.setupComplete} is false (first-run). */

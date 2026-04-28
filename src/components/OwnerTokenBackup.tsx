@@ -3,6 +3,7 @@ import { useI18n } from "../i18n/I18nProvider";
 import type { FabricActorId } from "../fabricIds";
 import {
   type FabricOwnerTokenEnvelope,
+  downloadStoredOwnerTokenBackup,
   getStoredFabricOwnerToken,
   issueOwnerTokenWithRetry,
   storeFabricOwnerToken,
@@ -12,9 +13,11 @@ type Phase = "loading" | "ready" | "error";
 
 export function OwnerTokenBackup({
   ownerUserId,
+  familyHeading,
   onAcknowledge,
 }: {
   ownerUserId: FabricActorId;
+  familyHeading?: string;
   onAcknowledge: () => void;
 }) {
   const { t } = useI18n();
@@ -49,22 +52,16 @@ export function OwnerTokenBackup({
   }, [ownerUserId, retryCount]);
 
   const downloadJson = useCallback(() => {
-    if (!envelope) return;
-    const blob = new Blob([JSON.stringify(envelope, null, 2)], {
-      type: "application/json",
-    });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `familytasks-owner-token-${ownerUserId.slice(0, 8)}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }, [envelope, ownerUserId]);
+    downloadStoredOwnerTokenBackup(ownerUserId);
+  }, [ownerUserId]);
 
   return (
     <div className="app-shell family-setup owner-token-backup">
       <header className="app-header">
         <div className="brand">
-          <h1>{t("brand.title")}</h1>
+          <h1 className={familyHeading ? "brand-title brand-title--family" : "brand-title"}>
+            {familyHeading ?? t("brand.title")}
+          </h1>
           <p className="tagline">{t("ownerToken.subtitle")}</p>
         </div>
       </header>

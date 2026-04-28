@@ -136,7 +136,10 @@ describeUi("Family Tasks UI (sandbox)", function () {
     assert.ok(heading.length > 0, "brand heading should be visible");
 
     const title = await sandbox.browser.title();
-    assert.ok(title.toLowerCase().includes("home") || title.toLowerCase().includes("task"), `unexpected title: ${title}`);
+    assert.ok(
+      /home|task|дом|задач/i.test(title),
+      `unexpected title: ${title}`,
+    );
   });
 
   it("Network tab renders Fabric WebSocket panel copy", async function () {
