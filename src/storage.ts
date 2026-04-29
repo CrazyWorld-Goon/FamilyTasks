@@ -1,5 +1,7 @@
-import type { AppState, FamilyMember, FamilyState, PaymentProposal, TaskStatus } from "./types";
+import type { AppState, DayPhase, FamilyMember, FamilyState, PaymentProposal, TaskStatus } from "./types";
 import { isFabricActorId } from "./fabricIds";
+
+const DAY_PHASE_VALUES = new Set<string>(["morning", "day", "evening", "night", "sleep"]);
 
 export interface PersistedState extends AppState {
   petCompletions: Record<string, TaskStatus>;
@@ -60,6 +62,15 @@ function parseFamily(raw: unknown): FamilyState | null | undefined {
   if (f.bitcoinFeatures !== undefined) {
     if (typeof f.bitcoinFeatures !== "boolean") return null;
     out.bitcoinFeatures = f.bitcoinFeatures;
+  }
+  if (f.shoppingVisiblePhasesAllTab !== undefined) {
+    if (!Array.isArray(f.shoppingVisiblePhasesAllTab)) return null;
+    const phases: DayPhase[] = [];
+    for (const x of f.shoppingVisiblePhasesAllTab) {
+      if (typeof x !== "string" || !DAY_PHASE_VALUES.has(x)) return null;
+      phases.push(x as DayPhase);
+    }
+    out.shoppingVisiblePhasesAllTab = phases;
   }
   return out;
 }

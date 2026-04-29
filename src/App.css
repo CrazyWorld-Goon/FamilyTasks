@@ -645,6 +645,55 @@ body {
   gap: 0.45rem;
 }
 
+.task-manage-meta-active-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+.task-manage-meta-active-pills.task-manage-member-pills .task-request-member-btn {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+}
+
+.task-active-toggle-pill {
+  min-width: 5.6rem !important;
+  border: 1px solid transparent;
+  color: #fff;
+}
+
+.task-active-toggle-pill.task-active-toggle-pill--on {
+  background: var(--status-done);
+  border-color: #5a7a60;
+}
+
+.task-active-toggle-pill.task-active-toggle-pill--off {
+  background: #f0d4d0;
+  color: #5c2624;
+  border-color: #c99a96;
+}
+
+.task-manage-weekday-pills {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.task-weekday-pill {
+  min-width: 0 !important;
+  width: 100%;
+  padding: 0.18rem 0.2rem;
+  font-size: 0.72rem;
+}
+
+.shopping-all-tab-phases-card {
+  margin-top: 1.25rem;
+}
+
+.shopping-all-tab-phase-pills {
+  margin-top: 0.35rem;
+}
+
 .task-manage-footer {
   margin-top: 1rem;
   display: flex;
@@ -1187,15 +1236,37 @@ body {
 .row-title {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.5rem;
   font-weight: 600;
   font-size: 0.95rem;
   overflow-wrap: anywhere;
 }
 
+/* Иконка + заголовок (покупки, питомцы) — одна группа слева, не space-between с корзинкой */
+.row-title__primary {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.row-title__primary .row-icon {
+  margin-right: 0;
+}
+
 .row-title__text {
   min-width: 0;
+  flex: 1 1 auto;
+}
+
+.row-title__badges {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
 }
 
 .badge-requested {
@@ -1207,7 +1278,6 @@ body {
   padding: 0.12rem 0.5rem;
   border-radius: 999px;
   flex: 0 0 auto;
-  margin-left: auto;
 }
 
 .row-meta {
@@ -1229,6 +1299,7 @@ body {
   border-radius: 6px;
   margin: 0;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .badge-fabric {
@@ -1642,7 +1713,7 @@ body {
 }
 
 .member-now-sub {
-  margin: 0.1rem 0 0.45rem;
+  margin: 0.1rem 0 0.045rem;
   font-size: 0.8rem;
   color: var(--muted);
 }
@@ -1817,7 +1888,8 @@ body {
 }
 
 .input-row input:focus-visible,
-.input-row select:focus-visible {
+.input-row select:focus-visible,
+.input-row .shop-assignee-trigger:focus-visible {
   border-color: #d4b89a;
 }
 
@@ -1861,6 +1933,54 @@ body {
 .repurchase-meta {
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.repurchase-assignee-picker {
+  position: relative;
+}
+
+.repurchase-assignee-trigger {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.repurchase-assignee-trigger:disabled {
+  cursor: default;
+}
+
+.repurchase-assignee-menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 0.2rem);
+  left: 0;
+  min-width: 5.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-soft);
+  padding: 0.2rem;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.repurchase-assignee-option {
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 0.2rem 0.35rem;
+  cursor: pointer;
+}
+
+.repurchase-assignee-option:hover {
+  background: #f5ece2;
 }
 
 .repurchase-status {
@@ -1907,6 +2027,65 @@ body {
   align-items: center;
   justify-content: flex-end;
   gap: 0.4rem;
+}
+
+.shop-assignee-picker {
+  position: relative;
+}
+
+.shop-assignee-trigger {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  min-height: 2.5rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
+.shop-assignee-trigger:disabled {
+  cursor: default;
+}
+
+.shop-assignee-trigger__name {
+  font-weight: 700;
+}
+
+.shop-assignee-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  min-width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-soft);
+  padding: 0.2rem;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.shop-assignee-option {
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 0.24rem 0.35rem;
+  cursor: pointer;
+}
+
+.shop-assignee-option:hover {
+  background: #f5ece2;
 }
 
 .shop-open-buy {
@@ -1992,6 +2171,27 @@ body {
   gap: 0.75rem;
   padding: 0.45rem 0 0.45rem 0.6rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.family-members-row.family-members-row--drop-target {
+  background: rgba(0, 100, 180, 0.06);
+}
+
+.family-members-drag {
+  flex-shrink: 0;
+  cursor: grab;
+  touch-action: none;
+  color: rgba(0, 0, 0, 0.38);
+}
+
+.family-members-drag:active {
+  cursor: grabbing;
+}
+
+.family-members-drag[disabled],
+.family-members-drag[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.35;
 }
 
 .family-members-meta {

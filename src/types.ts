@@ -86,6 +86,8 @@ export interface ShoppingItem {
   budgetSats?: number;
 }
 
+export type DayPhase = "morning" | "day" | "evening" | "night" | "sleep";
+
 /** Organizer-reviewed payout request; persisted as a Fabric-shaped household message. */
 export type PaymentProposalStatus = "pending" | "approved" | "rejected";
 
@@ -119,6 +121,11 @@ export interface FamilyState {
   fabricTasksPublic?: boolean;
   /** Toggles Bitcoin-specific shopping features (budgeting, funding, payout requests). */
   bitcoinFeatures?: boolean;
+  /**
+   * Фазы дня (утро…сон), когда строки открытых покупок видны на вкладке «Все».
+   * Не задано — все фазы (как раньше).
+   */
+  shoppingVisiblePhasesAllTab?: DayPhase[];
 }
 
 export interface AppState {
@@ -131,8 +138,6 @@ export interface AppState {
   /** Family members (persisted). When empty, clients fall back to `DEFAULT_MEMBERS` in `constants.ts` unless {@link FamilyState.setupComplete} is false (first-run). */
   users?: FamilyMember[];
 }
-
-export type DayPhase = "morning" | "day" | "evening" | "night" | "sleep";
 
 export interface VirtualPetTask {
   /** Composite key for UI — not a Fabric entity id. */

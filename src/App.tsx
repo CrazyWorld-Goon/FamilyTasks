@@ -27,6 +27,7 @@ import { usePersistedApp } from "./hooks/usePersistedApp";
 import { publicAsset } from "./paths";
 import { petRelevantWindow, petTaskRelevantNow, taskRelevantNow, taskRelevantWindow } from "./logic/relevance";
 import { isTaskSlotMissedToday } from "./logic/slotMissed";
+import { normalizedShoppingPhasesAllTab, shoppingVisibleOnAllTabForPhase } from "./logic/shoppingAllTabPhases";
 import { getRepurchaseCandidates, sortShoppingForDisplay } from "./logic/shoppingList";
 import { getEffectiveTaskStatus } from "./logic/taskDay";
 import { buildVirtualPetTasks, formatPlanTime } from "./logic/pets";
@@ -196,10 +197,12 @@ export default function App() {
     members,
     addMember,
     updateMember,
+    reorderMembers,
     removeMember,
     setTaskStatus,
     markShoppingBought,
     addShopping,
+    setShoppingAssignee,
     reopenShoppingItem,
     rejectShoppingItem,
     removeBoughtHistoryByTitleKey,
@@ -211,6 +214,7 @@ export default function App() {
     completeFamilySetup,
     setFabricTasksPublic,
     setFamilyProfile,
+    setShoppingVisiblePhasesAllTab,
     patchShoppingItem,
     addPaymentProposal,
     setPaymentProposalStatus,
@@ -243,10 +247,12 @@ export default function App() {
       return fallback;
     }
     if (!raw) return fallback;
-    if (raw === "all" || raw === "shop") return raw;
-    if (raw === "network" || raw === "family") return fallback;
-    if (typeof raw === "string" && raw.startsWith("network-peer:") && decodePeerViewTab(raw)) return raw as TabId;
-    if (DEFAULT_MEMBERS.some((m) => m.id === raw)) return raw as TabId;
+    if (raw === "all" || raw === "shop" || raw === "network" || raw === "family") return raw;
+    if (typeof raw === "string" && raw.startsWith("network-peer:")) {
+      return decodePeerViewTab(raw) ? (raw as TabId) : fallback;
+    }
+    // Member tabs are dynamic Fabric ids; keep value and let runtime guards validate against current members.
+    if (typeof raw === "string" && raw.length > 0) return raw as TabId;
     return fallback;
   });
   const [taskBoardOpen, setTaskBoardOpen] = useState(false);
@@ -261,6 +267,8 @@ export default function App() {
   const [taskScheduleMode, setTaskScheduleMode] = useState<"slot" | "time">("slot");
   const [taskPlannedTime, setTaskPlannedTime] = useState("");
   const [taskDaily, setTaskDaily] = useState(false);
+  const [shopAssigneePickerOpen, setShopAssigneePickerOpen] = useState(false);
+  const [repurchaseAssigneePickerForId, setRepurchaseAssigneePickerForId] = useState<string | null>(null);
   const [freshTaskIds, setFreshTaskIds] = useState<Record<string, number>>({});
   const [doneConfirm, setDoneConfirm] = useState<DoneConfirmState | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState<RemoveConfirmState | null>(null);
@@ -272,6 +280,8 @@ export default function App() {
   const flashTimeoutsRef = useRef<number[]>([]);
   const btcTapCountRef = useRef(0);
   const missedDoneTimersRef = useRef<Record<string, number[]>>({});
+  const shopAssigneePickerRef = useRef<HTMLDivElement | null>(null);
+  const repurchaseAssigneePickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const baseTitle = translate(MESSAGES[locale], "meta.title");
@@ -296,6 +306,29 @@ export default function App() {
       // localStorage может быть недоступен (privacy mode); вкладка тогда просто не персистится.
     }
   }, [tab]);
+
+  useEffect(() => {
+    const onPointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (shopAssigneePickerRef.current && !shopAssigneePickerRef.current.contains(target)) {
+        setShopAssigneePickerOpen(false);
+      }
+      if (repurchaseAssigneePickerRef.current && !repurchaseAssigneePickerRef.current.contains(target)) {
+        setRepurchaseAssigneePickerForId(null);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setShopAssigneePickerOpen(false);
+      setRepurchaseAssigneePickerForId(null);
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     if (secretTabsUnlocked !== true && isHiddenSecretTab(tab)) {
@@ -336,6 +369,13 @@ export default function App() {
       setShopAssignee((members[0]?.id ?? DEFAULT_MEMBERS[0]!.id) as MemberId);
     }
   }, [members, shopAssignee]);
+
+  useEffect(() => {
+    if (members.length <= 1) {
+      setShopAssigneePickerOpen(false);
+      setRepurchaseAssigneePickerForId(null);
+    }
+  }, [members.length]);
 
   useEffect(() => {
     if (!state) return;
@@ -727,6 +767,7 @@ export default function App() {
       }
     }
     for (const item of memberShops) {
+      if (!shoppingVisibleOnAllTabForPhase(state.family, phase)) continue;
       nowRows.push({ kind: "shop", item });
     }
 
@@ -988,7 +1029,10 @@ export default function App() {
           onSaveProfile={onSaveFamilyProfile}
           onAddMember={addMember}
           onUpdateMember={updateMember}
+          onReorderMembers={reorderMembers}
           onRemoveMember={removeMember}
+          shoppingVisiblePhasesAllTab={normalizedShoppingPhasesAllTab(state.family)}
+          onSetShoppingVisiblePhasesAllTab={setShoppingVisiblePhasesAllTab}
           paymentProposals={paymentProposals}
           ownerUserId={ownerUserId}
           canDecideProposals={canAccessNetwork}
@@ -1062,6 +1106,8 @@ export default function App() {
                   onRequestUndoTask={onRequestUndoTask}
                   onRequestAssignees={onRequestTaskAssignees}
                   onRequestUndoShopping={onRequestUndoShopping}
+                  onSetShoppingAssignee={setShoppingAssignee}
+                  canEditShoppingAssignee
                   onRemoveShop={onRemoveShop}
                   bitcoinFeaturesEnabled={bitcoinFeaturesEnabled}
                 />
@@ -1080,9 +1126,43 @@ export default function App() {
                     <li key={c.key} className="repurchase-row">
                       <div className="repurchase-text">
                         <span className="repurchase-title">{c.title}</span>
-                        <span className="repurchase-meta" style={{ color: mem?.color }}>
-                          {mem?.shortName}
-                        </span>
+                        <div className="repurchase-assignee-picker" ref={repurchaseAssigneePickerForId === c.id ? repurchaseAssigneePickerRef : undefined}>
+                          <button
+                            type="button"
+                            className="repurchase-meta repurchase-assignee-trigger"
+                            style={{ color: mem?.color }}
+                            onClick={() => {
+                              if (members.length <= 1) return;
+                              setRepurchaseAssigneePickerForId((prev) => (prev === c.id ? null : c.id));
+                            }}
+                            aria-haspopup="menu"
+                            aria-expanded={repurchaseAssigneePickerForId === c.id}
+                            aria-label={t("shopTab.ariaAssigneeToTasks")}
+                            disabled={members.length <= 1}
+                          >
+                            {mem?.shortName}
+                          </button>
+                          {repurchaseAssigneePickerForId === c.id && members.length > 1 ? (
+                            <div className="repurchase-assignee-menu" role="menu" aria-label={t("shopTab.assigneePickerAria")}>
+                              {members.map((m) => (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  role="menuitemradio"
+                                  aria-checked={c.assignee === m.id}
+                                  className="repurchase-assignee-option"
+                                  style={{ color: m.color }}
+                                  onClick={() => {
+                                    setShoppingAssignee(c.id, m.id);
+                                    setRepurchaseAssigneePickerForId(null);
+                                  }}
+                                >
+                                  {m.shortName}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
                         {c.status === "rejected" ? (
                           <span className="repurchase-status repurchase-status--rejected">{t("shopTab.rejectedStatus")}</span>
                         ) : null}
@@ -1141,13 +1221,50 @@ export default function App() {
                     aria-label={t("shopTab.budgetAria")}
                   />
                 ) : null}
-                <select value={shopAssignee} onChange={(e) => setShopAssignee(e.target.value as MemberId)} aria-label={t("shopTab.ariaAssigneeToTasks")}>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {t("shopTab.willBuyPrefix")} {m.shortName}
-                    </option>
-                  ))}
-                </select>
+                <div className="shop-assignee-picker" ref={shopAssigneePickerRef}>
+                  {(() => {
+                    const selectedMember = members.find((m) => m.id === shopAssignee) ?? members[0];
+                    return (
+                  <button
+                    type="button"
+                    className="shop-assignee-trigger"
+                    onClick={() => {
+                      if (members.length <= 1) return;
+                      setShopAssigneePickerOpen((v) => !v);
+                    }}
+                    aria-haspopup="menu"
+                    aria-expanded={shopAssigneePickerOpen}
+                    aria-label={t("shopTab.ariaAssigneeToTasks")}
+                    disabled={members.length <= 1}
+                  >
+                    {t("shopTab.willBuyPrefix")}{" "}
+                    <span className="shop-assignee-trigger__name" style={{ color: selectedMember?.color }}>
+                      {selectedMember?.shortName ?? ""}
+                    </span>
+                  </button>
+                    );
+                  })()}
+                  {shopAssigneePickerOpen && members.length > 1 ? (
+                    <div className="shop-assignee-menu" role="menu" aria-label={t("shopTab.assigneePickerAria")}>
+                      {members.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={shopAssignee === m.id}
+                          className="shop-assignee-option"
+                          style={{ color: m.color }}
+                          onClick={() => {
+                            setShopAssignee(m.id);
+                            setShopAssigneePickerOpen(false);
+                          }}
+                        >
+                          {m.shortName}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
                 <button type="submit" className="btn btn-primary">
                   <IconPlus size={16} /> {t("shopTab.addButton")}
                 </button>
@@ -1308,26 +1425,6 @@ export default function App() {
           >
             <h3>{t("taskRequest.title")}</h3>
             <p className="sync-error-hint">{t("taskRequest.hint", { title: requestAssignees.taskTitle })}</p>
-            <div className="task-request-actions">
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() =>
-                  setRequestAssignees((prev) => (prev ? { ...prev, selected: members.map((m) => m.id), error: null } : prev))
-                }
-              >
-                {t("taskRequest.selectAll")}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() =>
-                  setRequestAssignees((prev) => (prev ? { ...prev, selected: [], error: null } : prev))
-                }
-              >
-                {t("taskRequest.clearAll")}
-              </button>
-            </div>
             <div className="task-request-members">
               {members.map((member) => {
                 const selected = requestAssignees.selected.includes(member.id);
@@ -1768,7 +1865,8 @@ function TaskItemRow({
     const target = plannedTimeTarget(dayKey, task.plannedTime);
     if (!target) return null;
     const remainingMin = (target.getTime() - asOf.getTime()) / 60000;
-    if (remainingMin < 0 || remainingMin >= SOON_TIME_WARNING_MINUTES) return null;
+    // Keep urgent pulse a bit after planned time: up to the missed-status threshold (+5 min).
+    if (remainingMin < -SOON_TIME_URGENT_MINUTES || remainingMin >= SOON_TIME_WARNING_MINUTES) return null;
     return remainingMin < SOON_TIME_URGENT_MINUTES ? "urgent" : "soon";
   })();
   return (
@@ -1789,7 +1887,16 @@ function TaskItemRow({
       <div>
         <div className="row-title">
           <span className="row-title__text">{task.title}</span>
-          {requestedForViewer ? <span className="badge badge-requested">{t("taskRow.requestedBadge")}</span> : null}
+          {requestedForViewer || task.recurrence === "daily" ? (
+            <span className="row-title__badges">
+              {requestedForViewer ? <span className="badge badge-requested">{t("taskRow.requestedBadge")}</span> : null}
+              {task.recurrence === "daily" ? (
+                <span className="badge badge-daily" title={t("statusLabels.dailyRepeatTitle")}>
+                  {t("tasksManage.dailyBadge")}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
         </div>
         <div className="row-meta">
           {task.plannedTime ? t("taskRow.metaTime", { time: task.plannedTime }) : t("taskRow.metaSlot", { slot: slotShort })}
@@ -1797,11 +1904,6 @@ function TaskItemRow({
             <button type="button" className="linkish task-note-toggle" onClick={() => setNotesOpen(true)}>
               {hasNotes ? t("taskRow.editNotes") : t("taskRow.addNotes")}
             </button>
-          ) : null}
-          {task.recurrence === "daily" ? (
-            <span className="badge badge-daily" title={t("statusLabels.dailyRepeatTitle")}>
-              {t("tasksManage.dailyBadge")}
-            </span>
           ) : null}
           {fabricSharingEnabled && task.fabricPublished ? (
             <span className="badge badge-fabric" title={t("taskRow.publishOnFabricHint")}>
@@ -1898,6 +2000,8 @@ function RowView({
   onRequestUndoTask,
   onRequestAssignees,
   onRequestUndoShopping,
+  onSetShoppingAssignee,
+  canEditShoppingAssignee = false,
   onRemoveShop,
   ownerUserId,
   patchShoppingBudget,
@@ -1921,6 +2025,8 @@ function RowView({
   onRequestUndoTask: (t: Task) => void;
   onRequestAssignees: (t: Task) => void;
   onRequestUndoShopping: (s: ShoppingItem) => void;
+  onSetShoppingAssignee?: (id: string, assignee: MemberId) => void;
+  canEditShoppingAssignee?: boolean;
   onRemoveShop?: (s: ShoppingItem) => void;
   ownerUserId?: MemberId;
   patchShoppingBudget?: (id: string, sats: number) => void;
@@ -1928,24 +2034,85 @@ function RowView({
   bitcoinFeaturesEnabled?: boolean;
 }) {
   const { t } = useI18n();
+  const [shopAssigneePickerOpen, setShopAssigneePickerOpen] = useState(false);
+  const shopAssigneePickerRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!shopAssigneePickerOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (shopAssigneePickerRef.current && !shopAssigneePickerRef.current.contains(target)) {
+        setShopAssigneePickerOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShopAssigneePickerOpen(false);
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [shopAssigneePickerOpen]);
+
   if (row.kind === "shop") {
     const { item } = row;
     const isBought = item.status === "bought";
     const who = members.find((m) => m.id === item.assignee);
+    const canPickAssignee = canEditShoppingAssignee && typeof onSetShoppingAssignee === "function" && members.length > 1;
     const showPayoutBtn =
       Boolean(onRequestPayoutShop) && Boolean(bitcoinFeaturesEnabled) && !isBought && (!ownerUserId || item.assignee !== ownerUserId);
     return (
       <div className={isBought ? "row row--shop-bought" : "row row--shop-open"}>
         <div className="row-shop-body">
           <div className="row-title">
-            <IconCart size={16} className="row-icon row-icon--shop" />
-            {item.title}
+            <span className="row-title__primary">
+              <IconCart size={16} className="row-icon row-icon--shop" />
+              <span className="row-title__text">{item.title}</span>
+            </span>
           </div>
           <div className="row-meta">
             {t("shopRow.purchaseMeta")}{" "}
             {who ? (
               <>
-                {t("shopRow.buysStrong")} <strong style={{ color: who.color }}>{who.shortName}</strong>
+                {t("shopRow.buysStrong")}{" "}
+                {canPickAssignee ? (
+                  <span className="repurchase-assignee-picker row-shop-assignee-picker" ref={shopAssigneePickerRef}>
+                    <button
+                      type="button"
+                      className="repurchase-meta repurchase-assignee-trigger"
+                      style={{ color: who.color }}
+                      onClick={() => setShopAssigneePickerOpen((v) => !v)}
+                      aria-haspopup="menu"
+                      aria-expanded={shopAssigneePickerOpen}
+                      aria-label={t("shopTab.ariaAssigneeToTasks")}
+                    >
+                      {who.shortName}
+                    </button>
+                    {shopAssigneePickerOpen ? (
+                      <div className="repurchase-assignee-menu" role="menu" aria-label={t("shopTab.assigneePickerAria")}>
+                        {members.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={item.assignee === m.id}
+                            className="repurchase-assignee-option"
+                            style={{ color: m.color }}
+                            onClick={() => {
+                              onSetShoppingAssignee?.(item.id, m.id);
+                              setShopAssigneePickerOpen(false);
+                            }}
+                          >
+                            {m.shortName}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </span>
+                ) : (
+                  <strong style={{ color: who.color }}>{who.shortName}</strong>
+                )}
               </>
             ) : (
               t("shopRow.familyFallback")
@@ -2045,8 +2212,10 @@ function RowView({
     <div className="row">
       <div>
         <div className="row-title">
-          <PetIcon size={16} className="row-icon row-icon--pet" />
-          {pet.title}
+          <span className="row-title__primary">
+            <PetIcon size={16} className="row-icon row-icon--pet" />
+            <span className="row-title__text">{pet.title}</span>
+          </span>
         </div>
         <div className="row-meta">
           {t("petRow.planPrefix")} {formatPlanTime(pet.plannedMinutes)}

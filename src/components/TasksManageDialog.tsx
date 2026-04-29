@@ -960,26 +960,40 @@ export function TasksManageDialog({
                               />
                             </label>
                           ) : null}
-                          <label className="checkbox-line task-manage-inline-check">
-                            <input
-                              type="checkbox"
-                              checked={editingPermanent.active}
-                              onChange={(e) => setEditingPermanent({ ...editingPermanent, active: e.target.checked })}
-                            />
-                            {t("tasksManage.activeLabel")}
-                          </label>
+                          <div className="task-manage-assignees">
+                            <span className="task-manage-label-text">{t("tasksManage.activeLabel")}</span>
+                            <div className="task-manage-member-pills" role="group" aria-label={t("tasksManage.activeLabel")}>
+                              <button
+                                type="button"
+                                className={
+                                  editingPermanent.active
+                                    ? "btn task-request-member-btn task-active-toggle-pill task-active-toggle-pill--on"
+                                    : "btn task-request-member-btn task-active-toggle-pill task-active-toggle-pill--off"
+                                }
+                                aria-pressed={editingPermanent.active}
+                                onClick={() => setEditingPermanent({ ...editingPermanent, active: !editingPermanent.active })}
+                              >
+                                {editingPermanent.active ? t("tasksManage.active") : t("tasksManage.inactive")}
+                              </button>
+                            </div>
+                          </div>
                           <div className="task-manage-assignees">
                             <span className="task-manage-label-text">{t("tasksManage.weekdaysLabel")}</span>
-                            <div className="task-manage-assignees-grid">
+                            <div className="task-manage-member-pills task-manage-weekday-pills" role="group" aria-label={t("tasksManage.weekdaysLabel")}>
                               {WEEKDAY_OPTIONS.map((day) => (
-                                <label key={day.value} className="checkbox-line task-manage-inline-check">
-                                  <input
-                                    type="checkbox"
-                                    checked={editingPermanent.weekdays.includes(day.value)}
-                                    onChange={() => togglePermanentWeekday(day.value, "edit")}
-                                  />
+                                <button
+                                  key={day.value}
+                                  type="button"
+                                  className={
+                                    editingPermanent.weekdays.includes(day.value)
+                                      ? "btn btn-primary task-request-member-btn task-weekday-pill"
+                                      : "btn btn-ghost task-request-member-btn task-weekday-pill"
+                                  }
+                                  aria-pressed={editingPermanent.weekdays.includes(day.value)}
+                                  onClick={() => togglePermanentWeekday(day.value, "edit")}
+                                >
                                   {t(`tasksManage.weekdaysShort.${day.key}`)}
-                                </label>
+                                </button>
                               ))}
                             </div>
                           </div>
@@ -1044,26 +1058,19 @@ export function TasksManageDialog({
                                 {t("tasksManage.fabricBadge")}
                               </span>
                             ) : null}
-                            <label className="checkbox-line task-manage-inline-check">
-                              <input
-                                type="checkbox"
-                                checked={taskItem.active !== false}
-                                onChange={(e) =>
-                                  onUpdatePermanent(taskItem.id, {
-                                    title: taskItem.title,
-                                    assignees,
-                                    slot: taskItem.slot,
-                                    plannedTime: taskItem.plannedTime,
-                                    active: e.target.checked,
-                                    weekdays: normalizeWeekdays(taskItem.weekdays) ?? defaultWeekdays(),
-                                    scheduleMode: taskItem.plannedTime ? "time" : "slot",
-                                    fabricPublished: Boolean(taskItem.fabricPublished),
-                                  })
+                            <span className="task-manage-meta-active-wrap">
+                              <span
+                                className={
+                                  taskItem.active !== false
+                                    ? "badge task-active-toggle-pill task-active-toggle-pill--on"
+                                    : "badge task-active-toggle-pill task-active-toggle-pill--off"
                                 }
-                              />
-                              {t("tasksManage.activeLabel")}
-                            </label>
-                              <span className="badge badge-daily">{t("tasksManage.dailyBadge")}</span>
+                                aria-label={t("tasksManage.activeLabel")}
+                              >
+                                {taskItem.active !== false ? t("tasksManage.active") : t("tasksManage.inactive")}
+                              </span>
+                            </span>
+                            <span className="badge badge-daily">{t("tasksManage.dailyBadge")}</span>
                             </div>
                             <div className="task-manage-meta">
                               <span>{t("tasksManage.anyAssigneeDone")}</span>
@@ -1155,26 +1162,40 @@ export function TasksManageDialog({
                   </label>
                 ) : null}
                 {permanentSubmitAttempted && permanentTimeError ? <p className="task-manage-error">{permanentTimeError}</p> : null}
-                <label className="checkbox-line task-manage-inline-check">
-                  <input
-                    type="checkbox"
-                    checked={permanentForm.active}
-                    onChange={(e) => setPermanentForm((prev) => ({ ...prev, active: e.target.checked }))}
-                  />
-                  {t("tasksManage.activeLabel")}
-                </label>
+                <div className="task-manage-assignees">
+                  <span className="task-manage-label-text">{t("tasksManage.activeLabel")}</span>
+                  <div className="task-manage-member-pills" role="group" aria-label={t("tasksManage.activeLabel")}>
+                    <button
+                      type="button"
+                      className={
+                        permanentForm.active
+                          ? "btn task-request-member-btn task-active-toggle-pill task-active-toggle-pill--on"
+                          : "btn task-request-member-btn task-active-toggle-pill task-active-toggle-pill--off"
+                      }
+                      aria-pressed={permanentForm.active}
+                      onClick={() => setPermanentForm((prev) => ({ ...prev, active: !prev.active }))}
+                    >
+                      {permanentForm.active ? t("tasksManage.active") : t("tasksManage.inactive")}
+                    </button>
+                  </div>
+                </div>
                 <div className="task-manage-assignees">
                   <span className="task-manage-label-text">{t("tasksManage.weekdaysLabel")}</span>
-                  <div className="task-manage-assignees-grid">
+                  <div className="task-manage-member-pills task-manage-weekday-pills" role="group" aria-label={t("tasksManage.weekdaysLabel")}>
                     {WEEKDAY_OPTIONS.map((day) => (
-                      <label key={day.value} className="checkbox-line task-manage-inline-check">
-                        <input
-                          type="checkbox"
-                          checked={permanentForm.weekdays.includes(day.value)}
-                          onChange={() => togglePermanentWeekday(day.value, "new")}
-                        />
+                      <button
+                        key={day.value}
+                        type="button"
+                        className={
+                          permanentForm.weekdays.includes(day.value)
+                            ? "btn btn-primary task-request-member-btn task-weekday-pill"
+                            : "btn btn-ghost task-request-member-btn task-weekday-pill"
+                        }
+                        aria-pressed={permanentForm.weekdays.includes(day.value)}
+                        onClick={() => togglePermanentWeekday(day.value, "new")}
+                      >
                         {t(`tasksManage.weekdaysShort.${day.key}`)}
-                      </label>
+                      </button>
                     ))}
                   </div>
                 </div>

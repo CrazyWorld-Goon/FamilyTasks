@@ -8,9 +8,10 @@ import { isTaskSlotMissedToday } from "../logic/slotMissed";
 import { normalizeWeekdays } from "../logic/taskSchedule";
 import { createSeedState } from "../seed";
 import type { PersistedState } from "../storage";
-import type { FamilyMember, MemberId, PaymentProposal, ShoppingItem, Task, TaskStatus } from "../types";
+import type { DayPhase, FamilyMember, MemberId, PaymentProposal, ShoppingItem, Task, TaskStatus } from "../types";
 import { newFabricEntityIdHex, isFabricActorId } from "../fabricIds";
 import { logFabricPaymentProposal } from "../fabricPaymentProposal";
+import { persistableShoppingPhasesAllTab } from "../logic/shoppingAllTabPhases";
 
 function todayKey(d = new Date()): string {
   const base = new Date(d);
@@ -260,6 +261,13 @@ export function usePersistedApp() {
     }));
   }, [update]);
 
+  const setShoppingAssignee = useCallback((id: string, assignee: MemberId) => {
+    update((s) => ({
+      ...s,
+      shopping: s.shopping.map((i) => (i.id === id ? { ...i, assignee } : i)),
+    }));
+  }, [update]);
+
   const addShopping = useCallback((title: string, assignee: MemberId, opts?: { budgetSats?: number }) => {
     const id = newFabricEntityIdHex();
     const bs = opts?.budgetSats;
@@ -500,6 +508,19 @@ export function usePersistedApp() {
     [update],
   );
 
+  const setShoppingVisiblePhasesAllTab = useCallback(
+    (phases: DayPhase[]) => {
+      update((s) => {
+        const fam = s.family ?? { setupComplete: true };
+        return {
+          ...s,
+          family: { ...fam, shoppingVisiblePhasesAllTab: persistableShoppingPhasesAllTab(phases) },
+        };
+      });
+    },
+    [update],
+  );
+
   const completeFamilySetup = useCallback(
     async (input: {
       displayName: string;
@@ -688,6 +709,29 @@ export function usePersistedApp() {
     [update],
   );
 
+  const reorderMembers = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      update((s) => {
+        const users = s.users ?? DEFAULT_MEMBERS.map((m) => ({ ...m }));
+        if (users.length <= 1) return s;
+        if (
+          fromIndex === toIndex ||
+          fromIndex < 0 ||
+          toIndex < 0 ||
+          fromIndex >= users.length ||
+          toIndex >= users.length
+        ) {
+          return s;
+        }
+        const next = [...users];
+        const [removed] = next.splice(fromIndex, 1);
+        next.splice(toIndex, 0, removed);
+        return { ...s, users: next };
+      });
+    },
+    [update],
+  );
+
   const resetDemo = useCallback(() => {
     setState(createSeedState());
   }, []);
@@ -707,6 +751,7 @@ export function usePersistedApp() {
     setTaskStatus,
     markShoppingBought,
     setShoppingStatus,
+    setShoppingAssignee,
     addShopping,
     patchShoppingItem,
     reopenShoppingItem,
@@ -720,10 +765,12 @@ export function usePersistedApp() {
     setPetCompletion,
     addMember,
     updateMember,
+    reorderMembers,
     removeMember,
     completeFamilySetup,
     setFabricTasksPublic,
     setFamilyProfile,
+    setShoppingVisiblePhasesAllTab,
     addPaymentProposal,
     setPaymentProposalStatus,
     resetDemo,

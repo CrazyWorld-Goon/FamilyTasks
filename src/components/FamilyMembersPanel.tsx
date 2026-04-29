@@ -1,21 +1,23 @@
 "use strict";
 
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useRef, useState, type DragEvent, type FormEvent } from "react";
 import type { FamilyMember } from "../types";
 import { useI18n } from "../i18n/I18nProvider";
 import { memberRoleLabel } from "../i18n/memberRole";
-import { IconTrash, IconPlus, IconPencil } from "./Icons";
+import { IconGripVertical, IconTrash, IconPlus, IconPencil } from "./Icons";
 
 export function FamilyMembersPanel({
   members,
   onAdd,
   onUpdate,
   onRemove,
+  onReorderMembers,
 }: {
   members: FamilyMember[];
   onAdd: (input: Omit<FamilyMember, "id"> & { id?: string }) => void;
   onUpdate: (id: string, patch: { shortName: string; fullName: string; role: string; color: string }) => void;
   onRemove: (id: string) => void;
+  onReorderMembers: (fromIndex: number, toIndex: number) => void;
 }) {
   const { t } = useI18n();
   const [shortName, setShortName] = useState("");
@@ -28,6 +30,8 @@ export function FamilyMembersPanel({
   const [editFullName, setEditFullName] = useState("");
   const [editRole, setEditRole] = useState("");
   const [editColor, setEditColor] = useState("#7b9eb8");
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const dragFromIndex = useRef<number | null>(null);
 
   const submit = useCallback(
     (e: FormEvent) => {
@@ -68,13 +72,64 @@ export function FamilyMembersPanel({
     [editMember, editShortName, editFullName, editRole, editColor, onUpdate],
   );
 
+  const onDragStartRow = useCallback(
+    (index: number, e: DragEvent) => {
+      dragFromIndex.current = index;
+      e.dataTransfer.setData("text/plain", String(index));
+      e.dataTransfer.effectAllowed = "move";
+    },
+    [],
+  );
+
+  const onDragEndRow = useCallback(() => {
+    dragFromIndex.current = null;
+    setDragOverIndex(null);
+  }, []);
+
+  const onDragOverRow = useCallback((index: number, e: DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverIndex(index);
+  }, []);
+
+  const onDropRow = useCallback(
+    (toIndex: number, e: DragEvent) => {
+      e.preventDefault();
+      const raw = dragFromIndex.current ?? Number.parseInt(e.dataTransfer.getData("text/plain"), 10);
+      dragFromIndex.current = null;
+      setDragOverIndex(null);
+      if (!Number.isFinite(raw)) return;
+      const fromIndex = raw as number;
+      onReorderMembers(fromIndex, toIndex);
+    },
+    [onReorderMembers],
+  );
+
   return (
     <div className="card family-members-card">
       <h2>{t("users.heading")}</h2>
       <p className="section-hint">{t("users.hint")}</p>
       <ul className="family-members-list">
-        {members.map((m) => (
-          <li key={m.id} className="family-members-row" style={{ borderLeft: `4px solid ${m.color}` }}>
+        {members.map((m, index) => (
+          <li
+            key={m.id}
+            className={`family-members-row${dragOverIndex === index ? " family-members-row--drop-target" : ""}`}
+            style={{ borderLeft: `4px solid ${m.color}` }}
+            onDragOver={(e) => onDragOverRow(index, e)}
+            onDrop={(e) => onDropRow(index, e)}
+          >
+            <button
+              type="button"
+              className="family-members-drag btn btn-ghost btn-icon"
+              disabled={members.length <= 1}
+              draggable={members.length > 1}
+              aria-label={t("users.dragReorder")}
+              title={members.length <= 1 ? undefined : t("users.dragReorder")}
+              onDragStart={(e) => onDragStartRow(index, e)}
+              onDragEnd={onDragEndRow}
+            >
+              <IconGripVertical size={18} />
+            </button>
             <div className="family-members-meta">
               <strong>{m.shortName}</strong>
               <span className="badge">{memberRoleLabel(t, m)}</span>

@@ -188,6 +188,20 @@ export function IconClose({ size = 20, ...p }: IconProps) {
   );
 }
 
+/** Vertical grip — reorder lists. */
+export function IconGripVertical({ size = 20, ...p }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden {...p}>
+      <circle cx="9" cy="5" r="1.5" />
+      <circle cx="15" cy="5" r="1.5" />
+      <circle cx="9" cy="12" r="1.5" />
+      <circle cx="15" cy="12" r="1.5" />
+      <circle cx="9" cy="19" r="1.5" />
+      <circle cx="15" cy="19" r="1.5" />
+    </svg>
+  );
+}
+
 /** House — home / household. */
 export function IconHouse({ size = 20, ...p }: IconProps) {
   return (

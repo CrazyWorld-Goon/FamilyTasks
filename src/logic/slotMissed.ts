@@ -13,6 +13,7 @@ const SLOT_END_HOUR: Record<"morning" | "day" | "evening" | "night", number> = {
   evening: 22,
   night: 1,
 };
+const PLANNED_TIME_MISSED_AFTER_MIN = 5;
 
 function parseDateKey(dateKey: string): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
@@ -27,6 +28,14 @@ function parseDateKey(dateKey: string): Date | null {
 function compareDateKeys(a: string, b: string): number {
   if (a === b) return 0;
   return a < b ? -1 : 1;
+}
+
+function plannedTimeAt(taskDayKey: string, plannedMinutes: number): Date | null {
+  const base = parseDateKey(taskDayKey);
+  if (!base) return null;
+  const at = new Date(base);
+  at.setHours(Math.floor(plannedMinutes / 60), plannedMinutes % 60, 0, 0);
+  return at;
 }
 
 function slotEndAt(task: Task, taskDayKey: string): Date | null {
@@ -64,6 +73,13 @@ export function isTaskSlotMissedToday(task: Task, now: Date, todayKey: string): 
   const dayCmp = compareDateKeys(todayKey, refDayKey);
   if (dayCmp > 0) return true;
   if (dayCmp < 0) return false;
+
+  if (plannedMinutes != null) {
+    const plannedAt = plannedTimeAt(refDayKey, plannedMinutes);
+    if (plannedAt && now.getTime() - plannedAt.getTime() > PLANNED_TIME_MISSED_AFTER_MIN * 60_000) {
+      return true;
+    }
+  }
 
   const endAt = slotEndAt(task, refDayKey);
   if (!endAt) return false;
