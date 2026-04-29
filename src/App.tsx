@@ -31,6 +31,7 @@ import { getRepurchaseCandidates, sortShoppingForDisplay } from "./logic/shoppin
 import { getEffectiveTaskStatus } from "./logic/taskDay";
 import { buildVirtualPetTasks, formatPlanTime } from "./logic/pets";
 import { getDayPhase, parseHHMMToMinutes, phaseTimeRange, slotFromMinutes } from "./logic/time";
+import { isTaskScheduledOnDay } from "./logic/taskSchedule";
 import type { FamilyMember, MemberId, ShoppingItem, TabId, Task, TaskStatus, TimeSlot, VirtualPetTask } from "./types";
 import { decodePeerViewTab, encodePeerViewTabId, isPeerViewTab } from "./networkPeerTab";
 
@@ -39,6 +40,9 @@ const NEW_TASK_FLASH_MS = 1800;
 const SHOP_RESET_HOUR = 4;
 const MISSED_TASK_HOLD_MS = 3000;
 const MISSED_TASK_COLLAPSE_MS = 360;
+const REQUEST_HIGHLIGHT_MS = 24 * 60 * 60 * 1000;
+const SOON_TIME_WARNING_MINUTES = 30;
+const SOON_TIME_URGENT_MINUTES = 5;
 
 function dateKey(d = new Date()): string {
   const base = new Date(d);
@@ -46,6 +50,34 @@ function dateKey(d = new Date()): string {
     base.setDate(base.getDate() - 1);
   }
   return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`;
+}
+
+function parseDateKey(dk: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dk);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mon = Number(m[2]);
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(mon) || !Number.isFinite(d)) return null;
+  return new Date(y, mon - 1, d, 0, 0, 0, 0);
+}
+
+function plannedTimeTarget(dayKeyValue: string, plannedTime?: string): Date | null {
+  if (!plannedTime) return null;
+  const match = /^(\d{2}):(\d{2})$/.exec(plannedTime);
+  if (!match) return null;
+  const hh = Number(match[1]);
+  const mm = Number(match[2]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  const base = parseDateKey(dayKeyValue);
+  if (!base) return null;
+  const target = new Date(base);
+  // Logical task day resets at 04:00: 00:00-03:59 belong to the next calendar date.
+  if (hh < SHOP_RESET_HOUR) {
+    target.setDate(target.getDate() + 1);
+  }
+  target.setHours(hh, mm, 0, 0);
+  return target;
 }
 
 function shoppingDayKey(d = new Date()): string {
@@ -638,7 +670,10 @@ export default function App() {
 
   const rowsForMember = (member: MemberId): { now: Row[]; later: Row[] } => {
     const tasks = state.tasks.filter(
-      (t) => t.active !== false && (t.assignees?.length ? t.assignees.includes(member) : t.assignee === member),
+      (t) =>
+        t.active !== false &&
+        isTaskScheduledOnDay(t, dk) &&
+        (t.assignees?.length ? t.assignees.includes(member) : t.assignee === member),
     );
     const pets = virtualPets.filter((v) => v.assignee === member);
     const memberShops = state.shopping.filter(
@@ -1390,6 +1425,7 @@ export default function App() {
             assignees: data.assignees,
             active: data.active,
             plannedTime: data.plannedTime,
+            weekdays: data.weekdays,
             fabricPublished: data.fabricPublished,
           });
           showToast(t("toasts.taskAddedDaily"));
@@ -1413,6 +1449,7 @@ export default function App() {
             assignees: data.assignees,
             active: data.active,
             plannedTime: data.plannedTime,
+            weekdays: data.weekdays,
             fabricPublished: data.fabricPublished,
           });
           showToast(t("toasts.taskSaved"));
@@ -1661,6 +1698,8 @@ function PersonSection({
 function TaskItemRow({
   task,
   eff,
+  dayKey,
+  asOf = new Date(),
   slotMissed,
   collapseOut = false,
   isFreshTask,
@@ -1674,6 +1713,8 @@ function TaskItemRow({
 }: {
   task: Task;
   eff: TaskStatus;
+  dayKey: string;
+  asOf?: Date;
   slotMissed: boolean;
   collapseOut?: boolean;
   isFreshTask: boolean;
@@ -1713,11 +1754,23 @@ function TaskItemRow({
 
   const hasNotes = Boolean(task.notes?.trim());
   const slotShort = t(`slots.slotHintShort.${task.slot}`);
-  const requestedForViewer =
-    viewerMember != null &&
-    Boolean(task.sharedAt) &&
-    task.assignees?.includes(viewerMember) &&
-    task.assignee !== viewerMember;
+  const requestedForViewer = (() => {
+    if (viewerMember == null || !task.sharedAt) return false;
+    const sharedAtMs = Date.parse(task.sharedAt);
+    if (!Number.isFinite(sharedAtMs)) return false;
+    if (asOf.getTime() - sharedAtMs > REQUEST_HIGHLIGHT_MS) return false;
+    if (dateKey(new Date(sharedAtMs)) !== dayKey) return false;
+    const requestedAssignees = task.assignees?.length ? task.assignees : [task.assignee];
+    return requestedAssignees.includes(viewerMember);
+  })();
+  const timeAlertLevel = (() => {
+    if (eff !== "planned") return null;
+    const target = plannedTimeTarget(dayKey, task.plannedTime);
+    if (!target) return null;
+    const remainingMin = (target.getTime() - asOf.getTime()) / 60000;
+    if (remainingMin < 0 || remainingMin >= SOON_TIME_WARNING_MINUTES) return null;
+    return remainingMin < SOON_TIME_URGENT_MINUTES ? "urgent" : "soon";
+  })();
   return (
     <div
       className={[
@@ -1726,13 +1779,18 @@ function TaskItemRow({
         isFreshTask ? "row--task-fresh" : "",
         slotMissed ? "row--task-missed" : "",
         collapseOut ? "row--task-collapse-out" : "",
-        requestedForViewer ? "row--task-requested" : "",
+        requestedForViewer || timeAlertLevel ? "row--task-requested" : "",
+        timeAlertLevel ? "row--task-time-soon" : "",
+        timeAlertLevel === "urgent" ? "row--task-time-soon-urgent" : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
       <div>
-        <div className="row-title">{task.title}</div>
+        <div className="row-title">
+          <span className="row-title__text">{task.title}</span>
+          {requestedForViewer ? <span className="badge badge-requested">{t("taskRow.requestedBadge")}</span> : null}
+        </div>
         <div className="row-meta">
           {task.plannedTime ? t("taskRow.metaTime", { time: task.plannedTime }) : t("taskRow.metaSlot", { slot: slotShort })}
           {!notesOpen ? (
@@ -1964,6 +2022,8 @@ function RowView({
       <TaskItemRow
         task={task}
         eff={eff}
+        dayKey={dayKey}
+        asOf={asOf}
         slotMissed={slotMissed}
         collapseOut={Boolean(row.collapseOut)}
         isFreshTask={isFreshTask}

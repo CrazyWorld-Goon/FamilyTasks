@@ -5,6 +5,7 @@ import type { AppI18nError } from "../i18n/appError";
 import { mergeShoppingWithServer, shoppingDataEqual } from "../logic/mergeShopping";
 import { normalizeShoppingTitle } from "../logic/shoppingList";
 import { isTaskSlotMissedToday } from "../logic/slotMissed";
+import { normalizeWeekdays } from "../logic/taskSchedule";
 import { createSeedState } from "../seed";
 import type { PersistedState } from "../storage";
 import type { FamilyMember, MemberId, PaymentProposal, ShoppingItem, Task, TaskStatus } from "../types";
@@ -329,6 +330,7 @@ export function usePersistedApp() {
         assignees?: MemberId[];
         active?: boolean;
         plannedTime?: string;
+        weekdays?: number[];
         fabricPublished?: boolean;
         notes?: string;
       },
@@ -353,6 +355,7 @@ export function usePersistedApp() {
         plannedTime: opts?.plannedTime,
         dueDate,
         recurrence: opts?.recurrence,
+        weekdays: opts?.recurrence === "daily" ? normalizeWeekdays(opts.weekdays) : undefined,
         ...(notes ? { notes } : {}),
         ...(opts?.fabricPublished ? { fabricPublished: true as const } : {}),
       };
@@ -382,6 +385,7 @@ export function usePersistedApp() {
         assignees?: MemberId[];
         active?: boolean;
         plannedTime?: string;
+        weekdays?: number[];
         sharedAt?: string;
         fabricPublished?: boolean;
       },
@@ -402,6 +406,7 @@ export function usePersistedApp() {
         if (patch.slot !== undefined) next.slot = patch.slot;
         if (patch.active !== undefined) next.active = patch.active;
         if (patch.plannedTime !== undefined) next.plannedTime = patch.plannedTime || undefined;
+        if (patch.weekdays !== undefined) next.weekdays = normalizeWeekdays(patch.weekdays);
         if (patch.sharedAt !== undefined) next.sharedAt = patch.sharedAt || undefined;
         if (patch.fabricPublished !== undefined) {
           next.fabricPublished = patch.fabricPublished ? true : undefined;
@@ -414,6 +419,7 @@ export function usePersistedApp() {
           next.recurrence = "daily";
         } else if (patch.daily === false) {
           next.recurrence = undefined;
+          next.weekdays = undefined;
           next.lastCompletedOn = undefined;
         }
         if (patch.status !== undefined) {

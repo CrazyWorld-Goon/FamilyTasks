@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { useI18n } from "../i18n/I18nProvider";
 import { IconCheck, IconPencil, IconPlus, IconTrash, IconListChecks, IconClose } from "./Icons";
 import { getEffectiveTaskStatus } from "../logic/taskDay";
+import { DAILY_WEEKDAY_ORDER, normalizeWeekdays } from "../logic/taskSchedule";
 import type { FamilyMember, MemberId, Task, TimeSlot } from "../types";
 
 function slotShort(tFn: (path: string) => string, slot: TimeSlot): string {
@@ -30,6 +31,7 @@ type PermanentPayload = {
   slot: TimeSlot;
   plannedTime?: string;
   active: boolean;
+  weekdays: number[];
   scheduleMode: "slot" | "time";
   fabricPublished: boolean;
 };
@@ -43,6 +45,25 @@ type RegularCreatePayload = {
   notes: string;
   fabricPublished: boolean;
 };
+
+type WeekdayOption = {
+  value: number;
+  key: string;
+};
+
+const WEEKDAY_OPTIONS: WeekdayOption[] = [
+  { value: 1, key: "mon" },
+  { value: 2, key: "tue" },
+  { value: 3, key: "wed" },
+  { value: 4, key: "thu" },
+  { value: 5, key: "fri" },
+  { value: 6, key: "sat" },
+  { value: 0, key: "sun" },
+];
+
+function defaultWeekdays(): number[] {
+  return [...DAILY_WEEKDAY_ORDER];
+}
 
 function normalizeHHMM(raw: string): string | null {
   const value = raw.trim();
@@ -107,6 +128,7 @@ export function TasksManageDialog({
     slot: "day",
     plannedTime: undefined,
     active: true,
+    weekdays: defaultWeekdays(),
     scheduleMode: "slot",
     fabricPublished: false,
   });
@@ -226,6 +248,23 @@ export function TasksManageDialog({
     });
   }, []);
 
+  const togglePermanentWeekday = useCallback((weekday: number, target: "new" | "edit") => {
+    if (target === "new") {
+      setPermanentForm((prev) => {
+        const exists = prev.weekdays.includes(weekday);
+        const next = exists ? prev.weekdays.filter((v) => v !== weekday) : [...prev.weekdays, weekday];
+        return { ...prev, weekdays: next.length > 0 ? next : prev.weekdays };
+      });
+      return;
+    }
+    setEditingPermanent((prev) => {
+      if (!prev) return prev;
+      const exists = prev.weekdays.includes(weekday);
+      const next = exists ? prev.weekdays.filter((v) => v !== weekday) : [...prev.weekdays, weekday];
+      return { ...prev, weekdays: next.length > 0 ? next : prev.weekdays };
+    });
+  }, []);
+
   const submitPermanent = useCallback(() => {
     setPermanentSubmitAttempted(true);
     const title = permanentForm.title.trim();
@@ -235,6 +274,7 @@ export function TasksManageDialog({
     onCreatePermanent({
       ...permanentForm,
       title,
+      weekdays: normalizeWeekdays(permanentForm.weekdays) ?? defaultWeekdays(),
       slot: permanentForm.scheduleMode === "slot" ? permanentForm.slot : "any",
       plannedTime: permanentForm.scheduleMode === "time" ? normalizedTime ?? undefined : undefined,
     });
@@ -244,6 +284,7 @@ export function TasksManageDialog({
       slot: "day",
       plannedTime: undefined,
       active: true,
+      weekdays: defaultWeekdays(),
       scheduleMode: "slot",
       fabricPublished: false,
     });
@@ -285,6 +326,7 @@ export function TasksManageDialog({
       assignees,
       plannedTime: task.plannedTime,
       active: task.active !== false,
+      weekdays: normalizeWeekdays(task.weekdays) ?? defaultWeekdays(),
       scheduleMode: task.plannedTime ? "time" : "slot",
       fabricPublished: Boolean(task.fabricPublished),
     });
@@ -299,6 +341,7 @@ export function TasksManageDialog({
     onUpdatePermanent(editingPermanentId, {
       ...editingPermanent,
       title,
+      weekdays: normalizeWeekdays(editingPermanent.weekdays) ?? defaultWeekdays(),
       slot: editingPermanent.scheduleMode === "slot" ? editingPermanent.slot : "any",
       plannedTime: editingPermanent.scheduleMode === "time" ? normalizedTime ?? undefined : undefined,
     });
@@ -398,12 +441,16 @@ export function TasksManageDialog({
     () => (permanentForm.assignees.length > 0 ? null : t("tasksManage.validationAssigneeRequired")),
     [permanentForm.assignees.length, t],
   );
+  const permanentWeekdaysError = useMemo(
+    () => (permanentForm.weekdays.length > 0 ? null : t("tasksManage.validationWeekdaysRequired")),
+    [permanentForm.weekdays.length, t],
+  );
   const permanentTimeError = useMemo(() => {
     if (permanentForm.scheduleMode !== "time") return null;
     if (!permanentForm.plannedTime) return t("tasksManage.validationTimeRequired");
     return normalizedPermanentTime ? null : t("tasksManage.validationTimeInvalid");
   }, [normalizedPermanentTime, permanentForm.plannedTime, permanentForm.scheduleMode, t]);
-  const isPermanentFormValid = !permanentTitleError && !permanentAssigneesError && !permanentTimeError;
+  const isPermanentFormValid = !permanentTitleError && !permanentAssigneesError && !permanentWeekdaysError && !permanentTimeError;
   const permanentAssigneesText = useMemo(() => {
     const names = permanentForm.assignees
       .map((id) => members.find((m) => m.id === id)?.shortName ?? id)
@@ -413,6 +460,20 @@ export function TasksManageDialog({
   const permanentWhenText = permanentForm.scheduleMode === "time"
     ? normalizedPermanentTime ?? (permanentForm.plannedTime || "--:--")
     : slotShort(t, permanentForm.slot);
+  const weekdayLabelByValue = useMemo(
+    () =>
+      new Map<number, string>(
+        WEEKDAY_OPTIONS.map((item) => [item.value, t(`tasksManage.weekdaysShort.${item.key}`)]),
+      ),
+    [t],
+  );
+  const permanentDaysText = useMemo(() => {
+    const normalized = normalizeWeekdays(permanentForm.weekdays) ?? defaultWeekdays();
+    if (normalized.length === 7) return t("tasksManage.weekdaysAll");
+    return normalized
+      .map((value) => weekdayLabelByValue.get(value) ?? String(value))
+      .join(", ");
+  }, [permanentForm.weekdays, t, weekdayLabelByValue]);
   const normalizedRegularTime = useMemo(
     () => (regularCreateForm.plannedTime ? normalizeHHMM(regularCreateForm.plannedTime) : null),
     [regularCreateForm.plannedTime],
@@ -907,6 +968,21 @@ export function TasksManageDialog({
                             />
                             {t("tasksManage.activeLabel")}
                           </label>
+                          <div className="task-manage-assignees">
+                            <span className="task-manage-label-text">{t("tasksManage.weekdaysLabel")}</span>
+                            <div className="task-manage-assignees-grid">
+                              {WEEKDAY_OPTIONS.map((day) => (
+                                <label key={day.value} className="checkbox-line task-manage-inline-check">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingPermanent.weekdays.includes(day.value)}
+                                    onChange={() => togglePermanentWeekday(day.value, "edit")}
+                                  />
+                                  {t(`tasksManage.weekdaysShort.${day.key}`)}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
                           {fabricTasksPublic ? (
                             <label className="checkbox-line task-manage-inline-check">
                               <input
@@ -979,6 +1055,7 @@ export function TasksManageDialog({
                                     slot: taskItem.slot,
                                     plannedTime: taskItem.plannedTime,
                                     active: e.target.checked,
+                                    weekdays: normalizeWeekdays(taskItem.weekdays) ?? defaultWeekdays(),
                                     scheduleMode: taskItem.plannedTime ? "time" : "slot",
                                     fabricPublished: Boolean(taskItem.fabricPublished),
                                   })
@@ -990,6 +1067,13 @@ export function TasksManageDialog({
                             </div>
                             <div className="task-manage-meta">
                               <span>{t("tasksManage.anyAssigneeDone")}</span>
+                              <span>· {t("tasksManage.weekdaysLabel")}: {(() => {
+                                const normalized = normalizeWeekdays(taskItem.weekdays) ?? defaultWeekdays();
+                                if (normalized.length === 7) return t("tasksManage.weekdaysAll");
+                                return normalized
+                                  .map((value) => weekdayLabelByValue.get(value) ?? String(value))
+                                  .join(", ");
+                              })()}</span>
                             </div>
                           </div>
                           <div className="task-manage-toolbar">
@@ -1079,6 +1163,21 @@ export function TasksManageDialog({
                   />
                   {t("tasksManage.activeLabel")}
                 </label>
+                <div className="task-manage-assignees">
+                  <span className="task-manage-label-text">{t("tasksManage.weekdaysLabel")}</span>
+                  <div className="task-manage-assignees-grid">
+                    {WEEKDAY_OPTIONS.map((day) => (
+                      <label key={day.value} className="checkbox-line task-manage-inline-check">
+                        <input
+                          type="checkbox"
+                          checked={permanentForm.weekdays.includes(day.value)}
+                          onChange={() => togglePermanentWeekday(day.value, "new")}
+                        />
+                        {t(`tasksManage.weekdaysShort.${day.key}`)}
+                      </label>
+                    ))}
+                  </div>
+                </div>
                 {fabricTasksPublic ? (
                   <label className="checkbox-line task-manage-inline-check">
                     <input
@@ -1117,9 +1216,13 @@ export function TasksManageDialog({
                 {permanentSubmitAttempted && permanentAssigneesError ? (
                   <p className="task-manage-error">{permanentAssigneesError}</p>
                 ) : null}
+                {permanentSubmitAttempted && permanentWeekdaysError ? (
+                  <p className="task-manage-error">{permanentWeekdaysError}</p>
+                ) : null}
                 <p className="task-manage-preview">
                   {t("tasksManage.previewRule", {
                     when: permanentWhenText,
+                    days: permanentDaysText,
                     assignees: permanentAssigneesText,
                     activeState: permanentForm.active ? t("tasksManage.active") : t("tasksManage.inactive"),
                   })}

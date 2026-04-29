@@ -1,6 +1,7 @@
 import { getEffectiveTaskStatus } from "./taskDay";
 import type { Task } from "../types";
 import { parseHHMMToMinutes, slotFromMinutes } from "./time";
+import { isTaskScheduledOnDay } from "./taskSchedule";
 
 /**
  * Конец окна слота по тем же границам, что и getDayPhase (начало следующей фазы).
@@ -47,6 +48,7 @@ function slotEndAt(task: Task, taskDayKey: string): Date | null {
  * Для задач прошлых дней просрочка сохраняется во всех фазах до выполнения.
  */
 export function isTaskSlotMissedToday(task: Task, now: Date, todayKey: string): boolean {
+  if (!isTaskScheduledOnDay(task, todayKey)) return false;
   const plannedMinutes = parseHHMMToMinutes(task.plannedTime);
   const effectiveSlot = plannedMinutes != null ? slotFromMinutes(plannedMinutes) : task.slot;
   if (effectiveSlot === "any" || effectiveSlot === "sleep") return false;
