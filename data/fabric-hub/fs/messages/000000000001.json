@@ -1,0 +1,12 @@
+{
+  "id": "01c523b0b519ad79c2b5ea7224e23cdb41b2b32a7ce719ea3a83609aedc1eaf7",
+  "seq": 1,
+  "type": "GENESIS_MESSAGE",
+  "payload": {
+    "service": "@fabric/hub",
+    "created": "2026-04-28T17:35:18.437Z"
+  },
+  "created": "2026-04-28T17:35:18.437Z",
+  "chainBlock": "6edf003f8090812b1b4da699f41a6e5a58fa37d699e0ea5549d62b5e899efe0b",
+  "chainTip": "6edf003f8090812b1b4da699f41a6e5a58fa37d699e0ea5549d62b5e899efe0b"
+}

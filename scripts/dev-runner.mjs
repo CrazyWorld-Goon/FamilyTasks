@@ -2,6 +2,7 @@ import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
+import { loadFamilySettingsLocal } from "./familySettings.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
@@ -36,20 +37,37 @@ function spawnProcess(command, args, env) {
 }
 
 async function main() {
-  const apiPort = await findFreePort(3000);
+  const familyLocal = loadFamilySettingsLocal();
+  const fromEnv = process.env.FAMILY_TASKS_DEV_HTTP_PORT;
+  const fromSettings = familyLocal.http?.port;
+  const preferredApiPort =
+    Number(fromEnv) > 0 ? Number(fromEnv) : Number(fromSettings) > 0 ? Number(fromSettings) : 3000;
+  const apiPort = await findFreePort(preferredApiPort);
+  const fabricPort = await findFreePort(9777);
   const vitePort = Number(process.env.VITE_PORT) || 5170;
   const proxyTarget = `http://127.0.0.1:${apiPort}`;
+  /** Browser connects WebSocket/WebRTC signaling directly to the Hub HTTP port (not Vite). */
+  const hubAddress = process.env.VITE_HUB_ADDRESS || `127.0.0.1:${apiPort}`;
 
-  console.log(`[dev-runner] API порт: ${apiPort}${apiPort !== 3000 ? " (3000 был занят)" : ""}`);
+  console.log(`[dev-runner] API порт: ${apiPort}${apiPort !== preferredApiPort ? ` (${preferredApiPort} был занят)` : ""}`);
+  console.log(`[dev-runner] Fabric P2P порт: ${fabricPort}`);
   console.log(`[dev-runner] Vite порт: ${vitePort}`);
   console.log(`[dev-runner] Proxy /api -> ${proxyTarget}`);
+  console.log(`[dev-runner] Bridge hubAddress -> ${hubAddress}`);
 
   const sharedEnv = { ...process.env };
-  const apiEnv = { ...sharedEnv, PORT: String(apiPort) };
+  const apiEnv = {
+    ...sharedEnv,
+    PORT: String(apiPort),
+    FABRIC_HUB_PORT: String(apiPort),
+    FABRIC_PORT: String(fabricPort),
+    FABRIC_BITCOIN_ENABLE: sharedEnv.FABRIC_BITCOIN_ENABLE ?? "false",
+  };
   const viteEnv = {
     ...sharedEnv,
     VITE_API_PROXY_TARGET: proxyTarget,
     VITE_PORT: String(vitePort),
+    VITE_HUB_ADDRESS: hubAddress,
   };
 
   const apiProcess = spawnProcess(process.execPath, ["server/api.mjs"], apiEnv);

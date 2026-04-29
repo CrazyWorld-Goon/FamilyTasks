@@ -2,6 +2,7 @@ import type { DayPhase, MemberId, ShoppingItem, Task, TaskStatus, TimeSlot, Virt
 import { getEffectiveTaskStatus } from "./taskDay";
 import { isTaskSlotMissedToday } from "./slotMissed";
 import { getDayPhase, inWindow, parseHHMMToMinutes, slotFromMinutes, slotMatchesPhase } from "./time";
+import { isTaskScheduledOnDay } from "./taskSchedule";
 
 /** Окно «актуально по времени» для питомца — без учёта статуса (для строк «готово» в том же блоке). */
 export function petRelevantWindow(v: VirtualPetTask, phase: DayPhase, nowMin: number): boolean {
@@ -31,6 +32,7 @@ export function petTaskRelevantNow(v: VirtualPetTask, phase: DayPhase, nowMin: n
 
 /** Окно слота / фазы для задачи — без учёта статуса выполнения. */
 export function taskRelevantWindow(t: Task, phase: DayPhase, today: string, now: Date = new Date()): boolean {
+  if (!isTaskScheduledOnDay(t, today)) return false;
   const plannedMinutes = parseHHMMToMinutes(t.plannedTime);
   const effectiveSlot = plannedMinutes != null ? slotFromMinutes(plannedMinutes) : t.slot;
   if (effectiveSlot === "any") return slotMatchesPhase(effectiveSlot, phase);
@@ -40,6 +42,7 @@ export function taskRelevantWindow(t: Task, phase: DayPhase, today: string, now:
 }
 
 export function taskRelevantNow(t: Task, phase: DayPhase, today: string, now: Date = new Date()): boolean {
+  if (!isTaskScheduledOnDay(t, today)) return false;
   if (getEffectiveTaskStatus(t, today) !== "planned") return false;
   return taskRelevantWindow(t, phase, today, now);
 }
@@ -64,18 +67,26 @@ export function aggregateForAll(
   tasks: Task[],
   virtualPets: VirtualPetTask[],
   shopping: ShoppingItem[],
+  memberIds: MemberId[],
   now: Date = new Date(),
 ): { member: MemberId; relevant: number; planned: number }[] {
+  const TASK_RESET_HOUR = 4;
+  const taskDayKey = (d: Date): string => {
+    const base = new Date(d);
+    if (base.getHours() < TASK_RESET_HOUR) {
+      base.setDate(base.getDate() - 1);
+    }
+    return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`;
+  };
   const phase = getDayPhase(now);
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const dkey = now.toISOString().slice(0, 10);
-  const members: MemberId[] = ["anya", "seryozha", "tamara", "luka"];
-  return members.map((member) => {
+  const dkey = taskDayKey(now);
+  return memberIds.map((member) => {
     const relTasks = tasks.filter((t) => t.assignee === member && taskRelevantNow(t, phase, dkey, now));
     const relPets = virtualPets.filter((v) => v.assignee === member && petTaskRelevantNow(v, phase, nowMin));
     const shopTasks = shoppingAsTasksForMember(shopping, member).filter((t) => taskRelevantNow(t, phase, dkey, now));
     const planned =
-      tasks.filter((t) => t.assignee === member && getEffectiveTaskStatus(t, dkey) === "planned").length +
+      tasks.filter((t) => t.assignee === member && isTaskScheduledOnDay(t, dkey) && getEffectiveTaskStatus(t, dkey) === "planned").length +
       virtualPets.filter((v) => v.assignee === member && v.status === "planned").length +
       shopping.filter((s) => s.assignee === member && s.status === "open").length;
     return {

@@ -1,0 +1,11 @@
+{
+  "files": [
+    "beacon",
+    "federations",
+    "messages",
+    "sidechain",
+    "STATE"
+  ],
+  "parent": null,
+  "status": "STARTED"
+}

@@ -30,7 +30,8 @@ export function shoppingDataEqual(a: ShoppingItem[], b: ShoppingItem[]): boolean
       x.boughtAt !== y.boughtAt ||
       x.title !== y.title ||
       x.assignee !== y.assignee ||
-      x.createdAt !== y.createdAt
+      x.createdAt !== y.createdAt ||
+      x.budgetSats !== y.budgetSats
     ) {
       return false;
     }
@@ -42,12 +43,25 @@ function pickMerged(li: ShoppingItem | undefined, si: ShoppingItem | undefined):
   if (li == null) return si!;
   if (si == null) return li;
 
+  if (li.status === "rejected" && si.status !== "rejected") return li;
+  if (si.status === "rejected" && li.status !== "rejected") return si;
+  if (li.status === "rejected" && si.status === "rejected") return li;
+
   if (li.status === "bought" && si.status === "open") return li;
   if (li.status === "open" && si.status === "bought") return si;
   if (li.status === "bought" && si.status === "bought") {
     const da = li.boughtAt || "";
     const db = si.boughtAt || "";
     return da >= db ? li : si;
+  }
+  if (li.status === "open" && si.status === "open") {
+    return {
+      ...li,
+      budgetSats: si.budgetSats ?? li.budgetSats,
+      title: si.title,
+      assignee: si.assignee,
+      createdAt: si.createdAt,
+    };
   }
   return li;
 }

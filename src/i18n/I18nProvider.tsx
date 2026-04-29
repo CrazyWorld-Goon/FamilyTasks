@@ -30,9 +30,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.lang = locale === "ru" ? "ru" : "en";
-    document.title = translate(MESSAGES[locale], "meta.title");
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", translate(MESSAGES[locale], "meta.description"));
   }, [locale]);
 
   const setLocale = useCallback((l: Locale) => {

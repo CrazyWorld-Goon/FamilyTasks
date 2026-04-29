@@ -1,5 +1,9 @@
 node_modules
+reports
+coverage
 dist
 *.local
 .DS_Store
 data/app-state.json
+tools/chain-bin
+tools/.chain-download-cache

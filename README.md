@@ -1,37 +1,93 @@
-# Дом и задачи (`dom-i-zadachi`)
+# FamilyTasks · Дом и задачи
 
-Семейное веб-приложение: **поручения**, **уход за питомцами**, **общий список покупок**. **Тексты интерфейса — на русском.**
+**English** · A family web app: **tasks**, **pet care**, **shared shopping list**. **UI copy is Russian** (see `languages/`).
 
-**Состояние на сервере** (Node + Express): один файл, общий для всех клиентов по тому же origin. **Авторизации нет** — URL знает только семья.
+**Русский** · Семейное веб-приложение: **поручения**, **уход за питомцами**, **общий список покупок**. **Тексты интерфейса — на русском.**
 
-Этот файл — ориентир для людей и ИИ-агентов: стек, запуск, где логика, как устроены данные и ключевые правила UI.
+**English** · **Server-side state** (Node): one JSON document shared by all clients on the same origin. There is **no auth** — the URL is effectively private to the household. The HTTP process is built on **Fabric Hub** (`@fabric/hub`): same port serves the API, optional WebRTC signaling, and in production the built SPA. This file is an anchor for humans and agents: stack, run instructions, where logic lives, data layout, and UI rules.
+
+**Русский** · **Состояние на сервере** (Node): один документ для всех клиентов по тому же origin. **Авторизации нет** — URL знает только семья. Процесс HTTP — поверх **Fabric Hub** (`@fabric/hub`): тот же порт отдаёт API, при необходимости сигналинг WebRTC, в production — собранный SPA. Этот файл — ориентир для людей и ИИ-агентов: стек, запуск, где логика, как устроены данные и ключевые правила UI.
 
 ---
 
-## Стек
+## Quick Start
+```
+npm run build && npm start
+```
+
+See http://localhost:3900 for the setup.
+
+---
+
+## Stack · Стек
+
+**English**
+
+| Technology | Role |
+|------------|------|
+| **React 18** + **TypeScript** | UI under `src/` |
+| **Vite 5** | Build, dev server, `/api` proxy to the Hub |
+| **Express (via Fabric Hub)** | `GET`/`PUT` `/api/state`, JSON Pointer `GET`/`PUT`/`DELETE` `/api/store`, static `dist/` in production |
+| **`@fabric/hub`** | HTTP stack, hub data under `${DATA_DIR}/fabric-hub/` |
+
+Dependencies and scripts are in `package.json` (`concurrently`, `cross-env` for Windows).
+
+**Русский**
 
 | Технология | Роль |
 |------------|------|
-| **React 18** + **TypeScript** | UI, `src/` |
-| **Vite 5** | Сборка, dev-сервер, прокси `/api` → API |
-| **Express** | `GET`/`PUT` `/api/state`, в production — раздача `dist/` |
+| **React 18** + **TypeScript** | UI, каталог `src/` |
+| **Vite 5** | Сборка, dev-сервер, прокси `/api` → Hub |
+| **Express (через Fabric Hub)** | `GET`/`PUT` `/api/state`, JSON Pointer `GET`/`PUT`/`DELETE` `/api/store`, в production — раздача `dist/` |
+| **`@fabric/hub`** | HTTP-стек, данные хаба в `${DATA_DIR}/fabric-hub/` |
 
-Зависимости и скрипты — в `package.json` (`concurrently` + `cross-env` для dev/prod на Windows).
+Зависимости и скрипты — в `package.json` (`concurrently` + `cross-env`).
 
 ---
 
-## Запуск
+## Run · Запуск
 
-**Разработка** — поднимаются **два процесса**: API (`server/api.mjs`) и Vite (порт из `vite.config.ts`, по умолчанию **5170**).
-Команда `npm run dev` сама выбирает свободный порт API (начиная с **3000**) и проксирует `/api` на найденный порт.
+**English** · **Development** runs **two processes**: the Hub/API (`server/api.mjs` via `npm run dev` → `scripts/dev-runner.mjs`) and Vite (port from `vite.config.ts` / `VITE_PORT`, default **5170**). The dev runner picks a free API port (prefers `FAMILY_TASKS_DEV_HTTP_PORT`, then `settings/local.cjs` `http.port`, else from **3000**) and proxies `/api` to it. A separate **Fabric P2P port** is chosen from **9777** upward.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Открыть URL, который выведет Vite. В dev используется `base="/"`, поэтому приложение открывается с корня (`/`).
-Если API не доступен — экран «Нет связи с сервером» и кнопка «Повторить».
+Open the URL Vite prints. With `base="/"`, the app is at `/`. If the API is unreachable, you see “Нет связи с сервером” and **Повторить**.
+
+**Through the internet (ngrok, dev):**
+
+```bash
+npm run dev
+ngrok http --host-header=rewrite 5170
+```
+
+Use `https://<your-ngrok-host>/` (root). `/api` goes through Vite to the local Hub port.
+
+**Production:**
+
+```bash
+npm run build
+npm start
+```
+
+With `NODE_ENV=production`, static files are served from the build’s base: set **`APP_BASE`** or **`FABRIC_APP_BASE`** to match `vite build` (see `server/api.mjs`). Port: **`PORT`** or **`FABRIC_HUB_PORT`** (Hub default in settings is often **8080** if env unset — check `settings/local.cjs`).
+
+**On disk:** canonical document is persisted into **`data/fabric-family-tasks-store/`** (LevelDB) and mirrored to `data/app-state.json`; Hub runtime data is in **`data/fabric-hub/`** (FS, peers, etc.). Root directory: **`DATA_DIR`**. Do not commit runtime data (see `.gitignore`).
+
+**Preview without backend:** `npm run preview` — static only, **no persistence**; use `npm run dev` or `npm start` for full loop.
+
+**Also:** `npm run build:psite` — alternate `base` + sync script; align **`APP_BASE`/`FABRIC_APP_BASE`** and **`vite build --base`** with the real URL.
+
+**Русский** · **Разработка** — **два процесса**: Hub/API (`server/api.mjs`, команда `npm run dev` → `scripts/dev-runner.mjs`) и Vite (порт из `vite.config.ts` / `VITE_PORT`, по умолчанию **5170**). Dev-runner выбирает свободный порт API (приоритет: `FAMILY_TASKS_DEV_HTTP_PORT`, затем `http.port` в `settings/local.cjs`, иначе с **3000**) и проксирует `/api`. Отдельный **P2P-порт Fabric** — с **9777** вверх.
+
+```bash
+npm install
+npm run dev
+```
+
+Открыть URL, который выведет Vite. В dev используется `base="/"` — приложение с корня (`/`). Если API недоступен — экран «Нет связи с сервером» и кнопка «Повторить».
 
 **Через интернет (ngrok, dev):**
 
@@ -40,7 +96,7 @@ npm run dev
 ngrok http --host-header=rewrite 5170
 ```
 
-Открывать `https://<ваш-домен-ngrok>/` (корень). Все запросы к `/api` пойдут через Vite proxy на локальный API (порт выбирается автоматически).
+Открывать `https://<ваш-домен-ngrok>/` (корень). Запросы к `/api` идут через прокси Vite на локальный Hub.
 
 **Продакшен:**
 
@@ -49,93 +105,184 @@ npm run build
 npm start
 ```
 
-`NODE_ENV=production`: раздача статики с префикса **`APP_BASE`** (по умолчанию `/components/dom-i-zadachi/`, см. `server/api.mjs`). Порт: **`PORT`** (по умолчанию **3000**).
+`NODE_ENV=production`: статика с префикса сборки — задайте **`APP_BASE`** или **`FABRIC_APP_BASE`** в согласовании с `vite build` (см. `server/api.mjs`). Порт: **`PORT`** / **`FABRIC_HUB_PORT`** (в настройках Hub по умолчанию часто **8080**, если env не задан — см. `settings/local.cjs`).
 
-**Данные на диске:** `data/app-state.json` (каталог создаётся сам). Путь к каталогу: переменная **`DATA_DIR`**. Файл состояния в git не коммитится (см. `.gitignore`).
+**Данные на диске:** канонический документ хранится в **`data/fabric-family-tasks-store/`** (LevelDB) и зеркалится в `data/app-state.json`; служебные данные Hub лежат в **`data/fabric-hub/`** (FS, peers и т.д.). Корень: **`DATA_DIR`**. Рабочие данные в git не коммитить (см. `.gitignore`).
 
-**Превью без бэкенда:** `npm run preview` — только статика, **сохранение не работает**; для полного цикла — `npm run dev` или `npm start`.
+**Превью без бэкенда:** `npm run preview` — только статика, **сохранение не работает**; полный цикл — `npm run dev` или `npm start`.
 
-**Отдельно:** `npm run build:psite` — сборка с другим `base` и скрипт синхронизации во внешний каталог; при деплое выровнять **`APP_BASE`** и **`vite build --base`** с реальным URL.
+**Отдельно:** `npm run build:psite` — сборка с другим `base` и скрипт синхронизации; при деплое выровнять **`APP_BASE`/`FABRIC_APP_BASE`** и **`vite build --base`** с реальным URL.
+
+Туннель к Vite: при необходимости `server.allowedHosts` (см. `vite.config.ts`).
 
 ---
 
-## API и синхронизация
+## API and sync · API и синхронизация
+
+**English**
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/state` | Load full JSON document (server bootstraps defaults/migrations on startup, so route returns a document). |
+| `PUT` | `/api/state` | Body: `{ tasks, shopping, petCompletions, … }` — see `PersistedState` in `src/storage.ts`. |
+| `GET` | `/api/store?path=/` | JSON Pointer read (RFC 6901); default path `/` is the full document. |
+| `PUT` | `/api/store` | Pointer write; `path` `/` replaces document (validated + migrated). |
+
+Optional: `HUB_STOCK_UI=1` serves the stock Hub shell at `/` instead of Family Tasks. For local dev, `FABRIC_BITCOIN_ENABLE=false` is recommended (`server/api.mjs`).
+
+Additional Fabric routes from `server/api.mjs`:
+
+- `GET /api/fabric/node-key` — node public key metadata.
+- `POST /api/fabric/issue-owner-token` — signs a Family owner envelope for a valid owner user id.
+- `GET /api/price/btc` — BTC/USD quote helper route.
+- `POST /api/public-faucet` — forwards faucet requests to public Hub (`FABRIC_PUBLIC_HUB_ORIGIN`).
+
+**Client** (`src/hooks/usePersistedApp.ts`, `src/api/persistClient.ts`):
+
+- After edits — **debounced** save (~400 ms); on unmount — flush last state.
+- **PUT** errors — banner, **retry every 15 s** until success; on **`online`** — send immediately.
+- Every **120 s** — background `GET`; only **`shopping`** is merged per `src/logic/mergeShopping.ts` (local “bought” is not overwritten by stale server `open`; if server has bought and local has open, server wins).
+
+**Русский**
 
 | Метод | Путь | Назначение |
 |--------|------|------------|
-| `GET` | `/api/state` | Загрузка JSON. **404** — файла ещё нет; клиент берёт сид из `seed.ts` и пишет через `PUT`. |
-| `PUT` | `/api/state` | Тело: `{ tasks, shopping, petCompletions }` — см. `PersistedState` в `src/storage.ts`. |
+| `GET` | `/api/state` | Загрузка полного JSON-документа (сервер на старте применяет дефолт/миграции, поэтому маршрут возвращает документ). |
+| `PUT` | `/api/state` | Тело: `{ tasks, shopping, petCompletions, … }` — см. `PersistedState` в `src/storage.ts`. |
+| `GET` | `/api/store?path=/` | Чтение по JSON Pointer (RFC 6901); путь по умолчанию `/` — весь документ. |
+| `PUT` | `/api/store` | Запись по pointer; `path` `/` — замена документа (валидация + миграция). |
+
+Опционально: `HUB_STOCK_UI=1` — стандартная оболочка Hub на `/` вместо Family Tasks. Для локальной разработки рекомендуется `FABRIC_BITCOIN_ENABLE=false` (`server/api.mjs`).
+
+Дополнительные Fabric-маршруты из `server/api.mjs`:
+
+- `GET /api/fabric/node-key` — метаданные публичного ключа ноды.
+- `POST /api/fabric/issue-owner-token` — подпись owner-envelope для корректного `userId` владельца.
+- `GET /api/price/btc` — вспомогательный маршрут котировки BTC/USD.
+- `POST /api/public-faucet` — проксирование запроса к публичному Hub (`FABRIC_PUBLIC_HUB_ORIGIN`).
 
 **Клиент** (`src/hooks/usePersistedApp.ts`, `src/api/persistClient.ts`):
 
 - После изменений — сохранение с **debounce** (~400 ms), при размонтировании — попытка дописать последнее состояние.
-- Ошибка **PUT** — баннер, **повтор каждые 15 с** до успеха; при событии **`online`** — немедленная отправка.
-- Раз в **120 с** — фоновый `GET`; в состояние подмешивается **только `shopping`** по правилам `src/logic/mergeShopping.ts` (локально «куплено» не затирается устаревшим `open` с сервера; если на сервере уже куплено, а локально открыто — берётся сервер).
+- Ошибка **PUT** — баннер, **повтор каждые 15 с** до успеха; при **`online`** — немедленная отправка.
+- Раз в **120 с** — фоновый `GET`; в состояние подмешивается **только `shopping`** по правилам `src/logic/mergeShopping.ts`.
 
 ---
 
-## Поведение продукта (важно не сломать)
+## Product behavior · Поведение продукта (важно не сломать)
+
+**English**
+
+1. **Tabs** — `TabId` in `src/types.ts`: **All**, per **family member** (`MemberId` in `constants.ts`), **Shopping**.
+2. **Day phases** — `getDayPhase` in `src/logic/time.ts` (hour bounds — `DAY_PHASE_HOURS` in `constants.ts`): **morning 05:00–12:00**, **day 12:00–17:00**, **evening 17:00–22:00**, **late night 22:00–01:00**, **sleep 01:00–05:00**. Task relevance — `taskRelevantNow` / `taskRelevantWindow` in `src/logic/relevance.ts`.
+3. **Task slots** — `TimeSlot`: morning / day / evening / late night (`night`) / any. If a task is **not done** by end of slot, after the boundary it is **missed** and stays in “now” with a red **«не сделано»** badge (`MISSED_SLOT_LABEL`, `src/logic/slotMissed.ts`). Bounds: **morning → 12:00**, **day → 17:00**, **evening → 22:00**, **late night → 01:00 next day**. For past days, missed state persists until done; slot **`any`** is never marked missed.
+4. **Personal tab lists** — in “Актуально сейчас”, rows do not hide after check (only the badge changes). In “Дальше по списку”, sort: **by day phase**, then **by time/slot within phase** (`App.tsx`). **«Задачи»** in the header — edit/delete (`TasksManageDialog.tsx`).
+5. **Shopping** — `src/logic/shoppingList.ts`: “buy again” candidates; `sortShoppingForDisplay` keeps **order as in `state.shopping`**. “Снова в список” moves the **same** row to `open` (`reopenShoppingItem`). Server merge — `mergeShopping.ts`.
+6. **Pets** — schedule in `constants.ts`, virtual rows in `src/logic/pets.ts`, completions in `petCompletions`.
+7. **Daily tasks** — `src/logic/taskDay.ts` (`getEffectiveTaskStatus`).
+
+**Русский**
 
 1. **Вкладки** — `TabId` в `src/types.ts`: обзор **Все**, по **членам семьи** (`MemberId` в `constants.ts`), **Купить**.
-
-2. **Фазы дня** — `getDayPhase` в `src/logic/time.ts` (границы часов — `DAY_PHASE_HOURS` в `constants.ts`):  
-   **утро 05:00–12:00**, **день 12:00–17:00**, **вечер 17:00–22:00**, **почти ночь 22:00–01:00**, **время сна 01:00–05:00**.  
-   Релевантность задач — `taskRelevantNow` / `taskRelevantWindow` в `src/logic/relevance.ts`.
-
-3. **Слоты задач** — `TimeSlot`: утро / день / вечер / почти ночь (`night`) / любое.  
-   Если задача **не закрыта** до конца слота, после границы она считается просроченной и остаётся в «актуально сейчас» с красной плашкой **«не сделано»** (`MISSED_SLOT_LABEL`, `src/logic/slotMissed.ts`).  
-   Границы: **утро → 12:00**, **день → 17:00**, **вечер → 22:00**, **почти ночь → 01:00 следующего дня**.  
-   Для задач прошлых дней просрочка сохраняется во всех фазах до выполнения; слот **`any`** не помечается как просроченный.
-
-4. **Списки на личной вкладке** — в «Актуально сейчас» строки не прячутся после отметки (меняется только плашка).  
-   В «Дальше по списку» применяется сортировка: **по фазам дня**, затем **по времени/слоту внутри фазы** (логика в `App.tsx`).  
-   Модалка **«Задачи»** в шапке — правка и удаление задач (`TasksManageDialog.tsx`).
-
-5. **Покупки** — `src/logic/shoppingList.ts`: кандидаты «Купить ещё», `sortShoppingForDisplay` сейчас сохраняет **порядок как в `state.shopping`** (без отделения open/bought). «Снова в список» переводит **ту же** запись в `open` (`reopenShoppingItem`). Слияние с сервером — `mergeShopping.ts`.
-
+2. **Фазы дня** — `getDayPhase` в `src/logic/time.ts` (границы часов — `DAY_PHASE_HOURS` в `constants.ts`): **утро 05:00–12:00**, **день 12:00–17:00**, **вечер 17:00–22:00**, **почти ночь 22:00–01:00**, **время сна 01:00–05:00**. Релевантность задач — `taskRelevantNow` / `taskRelevantWindow` в `src/logic/relevance.ts`.
+3. **Слоты задач** — `TimeSlot`: утро / день / вечер / почти ночь (`night`) / любое. Если задача **не закрыта** до конца слота, после границы она считается просроченной и остаётся в «актуально сейчас» с красной плашкой **«не сделано»** (`MISSED_SLOT_LABEL`, `src/logic/slotMissed.ts`). Границы: **утро → 12:00**, **день → 17:00**, **вечер → 22:00**, **почти ночь → 01:00 следующего дня**. Для задач прошлых дней просрочка сохраняется во всех фазах до выполнения; слот **`any`** не помечается как просроченный.
+4. **Списки на личной вкладке** — в «Актуально сейчас» строки не прячутся после отметки (меняется только плашка). В «Дальше по списку» сортировка: **по фазам дня**, затем **по времени/слоту внутри фазы** (`App.tsx`). Модалка **«Задачи»** в шапке — правка и удаление (`TasksManageDialog.tsx`).
+5. **Покупки** — `src/logic/shoppingList.ts`: кандидаты «Купить ещё», `sortShoppingForDisplay` сохраняет **порядок как в `state.shopping`**. «Снова в список» переводит **ту же** запись в `open` (`reopenShoppingItem`). Слияние с сервером — `mergeShopping.ts`.
 6. **Питомцы** — расписание в `constants.ts`, виртуальные строки в `src/logic/pets.ts`, выполнение в `petCompletions`.
-
 7. **Ежедневные задачи** — `src/logic/taskDay.ts` (`getEffectiveTaskStatus`).
 
 ---
 
-## Структура репозитория (сокращённо)
+## Repository layout · Структура репозитория (сокращённо)
+
+**English**
 
 ```
-server/api.mjs          — API + static в production
-data/                   — app-state.json (не в git)
+server/api.mjs          — Hub + Family Tasks routes + static in production
+server/FamilyTasksFabricStore.mjs, fabricPointerStore.mjs, …
+data/                   — app-state.json + fabric-family-tasks-store/ + fabric-hub/ (not in git)
+stores/bitcoin-regtest/ — local regtest chain data when Bitcoin mode is enabled (not in git)
+tools/chain-bin/        — optional local bitcoind / bitcoin-cli install target
 src/
   main.tsx, App.tsx, App.css
   types.ts, constants.ts, seed.ts, storage.ts, paths.ts
   api/persistClient.ts
   hooks/usePersistedApp.ts
-  components/TasksManageDialog.tsx, Icons.tsx
+  components/TasksManageDialog.tsx, Icons.tsx, …
   logic/
     time.ts, relevance.ts, taskDay.ts
     pets.ts, shoppingList.ts, mergeShopping.ts, slotMissed.ts
 ```
 
-Смена схемы `PersistedState` — миграция при загрузке, смена формата API, или согласованный сброс `data/app-state.json` / ключа/версии (при появлении версионирования).
+Changing `PersistedState` requires load migration, API contract updates, or a coordinated reset of `data/app-state.json` / versioning when introduced.
+
+**Русский**
+
+```
+server/api.mjs          — Hub + маршруты Family Tasks + static в production
+server/FamilyTasksFabricStore.mjs, fabricPointerStore.mjs, …
+data/                   — app-state.json + fabric-family-tasks-store/ + fabric-hub/ (не в git)
+stores/bitcoin-regtest/ — локальные данные regtest при включенном Bitcoin-режиме (не в git)
+tools/chain-bin/        — опциональная локальная установка bitcoind / bitcoin-cli
+src/
+  main.tsx, App.tsx, App.css
+  types.ts, constants.ts, seed.ts, storage.ts, paths.ts
+  api/persistClient.ts
+  hooks/usePersistedApp.ts
+  components/TasksManageDialog.tsx, Icons.tsx, …
+  logic/
+    time.ts, relevance.ts, taskDay.ts
+    pets.ts, shoppingList.ts, mergeShopping.ts, slotMissed.ts
+```
+
+Смена схемы `PersistedState` — миграция при загрузке, смена формата API, или согласованный сброс `data/app-state.json` / версии (при появлении версионирования).
 
 ---
 
-## Принципы правок
+## Contribution principles · Принципы правок
 
-- Не подключать бэкенд с авторизацией и т.д. без явной задачи; текущий контракт — один общий state-файл.
-- Не ломать сценарий **dev**: API + Vite с прокси `/api`.
+**English**
+
+- Do not add an authenticated backend unless explicitly requested; the contract is still one shared state document (+ Hub stores under `fabric-hub/`).
+- Do not break **dev**: Hub + Vite with `/api` proxy via `dev-runner`.
+- Extending `MemberId`, member list, and pets — via `constants.ts` and types.
+- Tasks with `Task.shoppingItemId` stay in sync with shopping in `usePersistedApp` (done / bought).
+
+**Русский**
+
+- Не подключать бэкенд с авторизацией и т.д. без явной задачи; контракт — один общий state-файл (+ хранилища Hub в `fabric-hub/`).
+- Не ломать сценарий **dev**: Hub + Vite с прокси `/api` через `dev-runner`.
 - Расширение `MemberId`, списка членов и питомцев — через `constants.ts` и типы.
 - Задачи с `Task.shoppingItemId` синхронизируются с покупками в `usePersistedApp` (отметка «готово» / разметка куплено).
 
 ---
 
-## Команды
+## Commands · Команды
+
+**English**
+
+| Command | Action |
+|---------|--------|
+| `npm run dev` | Dev runner: Hub (free port) + Vite; full sync when server is up |
+| `npm run build` | Build to `dist/` |
+| `npm start` | Production: Hub + `dist/` |
+| `npm run preview` | Front-end from `dist/` only, no API |
+| `npm run build:psite` | Build with psite `base` + sync script |
+| `npm run install:bitcoin-lightning` | Install local Bitcoin Core binaries (`--skip-lightning` by default on this script command) |
+| `npm test` | Build + API/integration test suite (`tests/*.test.cjs`) |
+| `npm run test:ui` | Build + browser UI smoke/integration test |
+| `npm run test:wallet` | Wallet/Bitcoin HTTP flow tests |
+
+**Русский**
 
 | Команда | Действие |
 |---------|----------|
-| `npm run dev` | API :3000 + Vite; полная синхронизация при доступном сервере |
+| `npm run dev` | Dev-runner: Hub (свободный порт) + Vite; полная синхронизация при доступном сервере |
 | `npm run build` | Сборка в `dist/` |
-| `npm start` | Production: API + раздача `dist/` |
+| `npm start` | Production: Hub + раздача `dist/` |
 | `npm run preview` | Только фронт из `dist/`, без API |
 | `npm run build:psite` | Сборка с `base` для psite + sync-скрипт |
-
-При работе через туннель к Vite может понадобиться `server.allowedHosts` (уже есть в `vite.config.ts`).
+| `npm run install:bitcoin-lightning` | Локальная установка бинарников Bitcoin Core (в этом npm-скрипте используется `--skip-lightning`) |
+| `npm test` | Сборка + основной набор API/integration тестов (`tests/*.test.cjs`) |
+| `npm run test:ui` | Сборка + браузерный UI smoke/integration тест |
+| `npm run test:wallet` | Тесты wallet/Bitcoin HTTP-потока |

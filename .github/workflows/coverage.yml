@@ -1,0 +1,46 @@
+# Matches hub.fabric.pub `npm run coverage` = `c8 npm test` (C8 wraps the test suite).
+# Installs Puppeteer’s Chrome binary for optional browser checks; `SKIP_BROWSER_UI=1`
+# skips the Puppeteer suite so CI stays reliable when Chrome/Chromium flake (see npm test).
+
+name: Coverage
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: coverage-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    env:
+      # Puppeteer/Chromium launches are flaky on GitHub-hosted runners (WS endpoint timeout).
+      # Run `npm run test:ui` locally for `@fabric/http` Sandbox coverage; CI runs unit + wallet API tests only.
+      SKIP_BROWSER_UI: "1"
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run coverage (c8 npm test)
+        run: npm run coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: reports/coverage

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "beacon-federation",
+      "name": "Beacon Federation",
+      "kind": "fabric-hub-beacon",
+      "source": "settings",
+      "seededAt": "2026-04-28T17:35:16.307Z"
+    },
+    {
+      "id": "liquid",
+      "name": "Liquid",
+      "kind": "elements-fedpeg",
+      "source": "settings",
+      "seededAt": "2026-04-28T17:35:16.307Z"
+    },
+    {
+      "id": "familytasks-household",
+      "name": "Family Tasks household",
+      "kind": "familytasks-household",
+      "source": "settings",
+      "seededAt": "2026-04-28T17:35:16.307Z"
+    }
+  ],
+  "lastScannedHeight": null,
+  "updatedAt": "2026-04-28T17:35:16.307Z"
+}
