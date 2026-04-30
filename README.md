@@ -72,7 +72,7 @@ npm run build
 npm start
 ```
 
-With `NODE_ENV=production`, static files are served from the build’s base: set **`APP_BASE`** or **`FABRIC_APP_BASE`** to match `vite build` (see `server/api.mjs`). Port: **`PORT`** or **`FABRIC_HUB_PORT`** (Hub default in settings is often **8080** if env unset — check `settings/local.cjs`).
+With `NODE_ENV=production`, static files are served from the build’s base: set **`APP_BASE`** or **`FABRIC_APP_BASE`** to match `vite build` (see `server/api.mjs`). If `dist/index.html` is missing, startup now fails by default (to prevent silently serving the stock Hub UI); use **`FAMILY_TASKS_ALLOW_STOCK_UI_FALLBACK=1`** only if you intentionally want Hub UI fallback. Family Tasks uses non-default Hub baselines in `settings/local.cjs` to avoid collisions with other Hub services; override any port explicitly with envs: **`PORT`** / **`FABRIC_HUB_PORT`** (HTTP), **`FABRIC_PORT`** (Fabric P2P), **`FABRIC_BITCOIN_PORT`** (bitcoind P2P listen), **`FABRIC_BITCOIN_RPC_PORT`** (bitcoind RPC), **`FABRIC_LIGHTNING_PORT`** (CLN).
 
 **On disk:** canonical document is persisted into **`data/fabric-family-tasks-store/`** (LevelDB) and mirrored to `data/app-state.json`; Hub runtime data is in **`data/fabric-hub/`** (FS, peers, etc.). Root directory: **`DATA_DIR`**. Do not commit runtime data (see `.gitignore`).
 
@@ -105,7 +105,7 @@ npm run build
 npm start
 ```
 
-`NODE_ENV=production`: статика с префикса сборки — задайте **`APP_BASE`** или **`FABRIC_APP_BASE`** в согласовании с `vite build` (см. `server/api.mjs`). Порт: **`PORT`** / **`FABRIC_HUB_PORT`** (в настройках Hub по умолчанию часто **8080**, если env не задан — см. `settings/local.cjs`).
+`NODE_ENV=production`: статика с префикса сборки — задайте **`APP_BASE`** или **`FABRIC_APP_BASE`** в согласовании с `vite build` (см. `server/api.mjs`). Если нет `dist/index.html`, запуск теперь падает по умолчанию (чтобы не молча отдавать стандартный Hub UI); для осознанного fallback задайте **`FAMILY_TASKS_ALLOW_STOCK_UI_FALLBACK=1`**. Для Family Tasks в `settings/local.cjs` заданы нестандартные базовые порты, чтобы не конфликтовать с другими сервисами на Hub; любой порт можно переопределить env-переменными: **`PORT`** / **`FABRIC_HUB_PORT`** (HTTP), **`FABRIC_PORT`** (Fabric P2P), **`FABRIC_BITCOIN_PORT`** (P2P bitcoind), **`FABRIC_BITCOIN_RPC_PORT`** (RPC bitcoind), **`FABRIC_LIGHTNING_PORT`** (CLN).
 
 **Данные на диске:** канонический документ хранится в **`data/fabric-family-tasks-store/`** (LevelDB) и зеркалится в `data/app-state.json`; служебные данные Hub лежат в **`data/fabric-hub/`** (FS, peers и т.д.). Корень: **`DATA_DIR`**. Рабочие данные в git не коммитить (см. `.gitignore`).
 

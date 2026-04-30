@@ -6,10 +6,13 @@
  *
  * Env: PORT / FABRIC_HUB_PORT — HTTP listener (Hub `settings.http.port`).
  *      FABRIC_BITCOIN_ENABLE=false — skip Bitcoin (recommended for local dev).
+ *      FABRIC_BITCOIN_PORT — bitcoind P2P listen port (bind/listen collision guard).
+ *      FABRIC_BITCOIN_BIND — bitcoind bind address (default `127.0.0.1`).
  *      DATA_DIR — app JSON + Fabric hub stores under `${DATA_DIR}/fabric-hub/`.
  *      NODE_ENV=production — recommended for `npm start`; required for missing-dist warning.
  *      FABRIC_APP_BASE — Vite build base (default `/` in vite.config); must match how `dist/` was built.
  *      HUB_STOCK_UI=1 — leave Hub’s default `/` shell (skip Family Tasks wiring).
+ *      FAMILY_TASKS_ALLOW_STOCK_UI_FALLBACK=1 — in production, allow fallback to Hub UI when `dist/` is missing.
  *      FABRIC_PUBLIC_HUB_ORIGIN — origin for forwarding `POST /api/public-faucet` to the public Hub (default https://hub.fabric.pub).
  *      `./settings/local.cjs` — Family Tasks overrides merged after `@fabric/hub/settings/local.js`
  *      (`http.port`, `name`, …); env `PORT` / `FABRIC_HUB_PORT` still wins when set.
@@ -140,6 +143,20 @@ function buildHubSettings() {
   const mergedBase = merge({}, hubSettingsLocal, familySettingsLocal);
   const envHttpPort = process.env.FABRIC_HUB_PORT || process.env.PORT;
   const httpPort = coercePort(envHttpPort, coercePort(mergedBase.http?.port, 8080));
+  const fabricPort = coercePort(process.env.FABRIC_PORT, coercePort(mergedBase.port, 7777));
+  const bitcoinRpcPort = coercePort(
+    process.env.FABRIC_BITCOIN_RPC_PORT,
+    coercePort(mergedBase.bitcoin?.rpcport, 18443),
+  );
+  const bitcoinPort = coercePort(
+    process.env.FABRIC_BITCOIN_PORT,
+    coercePort(mergedBase.bitcoin?.port, 18444),
+  );
+  const bitcoinBind = String(process.env.FABRIC_BITCOIN_BIND || mergedBase.bitcoin?.bind || "127.0.0.1");
+  const lightningPort = coercePort(
+    process.env.FABRIC_LIGHTNING_PORT,
+    coercePort(mergedBase.lightning?.port, 19735),
+  );
 
   const baseFeds = Array.isArray(mergedBase.federations) ? mergedBase.federations : [];
   const federationList = [...baseFeds];
@@ -157,6 +174,17 @@ function buildHubSettings() {
       path: path.join(hubDataRoot, "fs"),
     },
     peersDb: path.join(hubDataRoot, "peers"),
+    port: fabricPort,
+    bitcoin: {
+      ...(mergedBase.bitcoin || {}),
+      bind: bitcoinBind,
+      port: bitcoinPort,
+      rpcport: bitcoinRpcPort,
+    },
+    lightning: {
+      ...(mergedBase.lightning || {}),
+      port: lightningPort,
+    },
     http: {
       ...(mergedBase.http || {}),
       hostname:
@@ -192,9 +220,14 @@ function configureFamilyTasksUi(hub) {
   const indexHtml = path.join(dist, "index.html");
   if (!fs.existsSync(indexHtml)) {
     if (process.env.NODE_ENV === "production") {
-      console.warn(
-        "[family-tasks] No dist/index.html — run `npm run build` first. `/` will use the stock Hub shell until then.",
-      );
+      const allowStockFallback =
+        process.env.FAMILY_TASKS_ALLOW_STOCK_UI_FALLBACK === "1" ||
+        process.env.FAMILY_TASKS_ALLOW_STOCK_UI_FALLBACK === "true";
+      const msg = "[family-tasks] No dist/index.html — run `npm run build` first.";
+      if (!allowStockFallback) {
+        throw new Error(`${msg} Refusing Hub UI fallback in production.`);
+      }
+      console.warn(`${msg} FAMILY_TASKS_ALLOW_STOCK_UI_FALLBACK=1 set, serving stock Hub UI.`);
     }
     return;
   }
