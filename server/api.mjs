@@ -12,6 +12,7 @@
  *      NODE_ENV=production — recommended for `npm start`; required for missing-dist warning.
  *      FABRIC_APP_BASE — Vite build base (default `/` in vite.config); must match how `dist/` was built.
  *      HUB_STOCK_UI=1 — leave Hub’s default `/` shell (skip Family Tasks wiring).
+ *      FAMILY_TASKS_ALLOW_STOCK_UI_FALLBACK=1 — in production, allow fallback to Hub UI when `dist/` is missing.
  *      FABRIC_PUBLIC_HUB_ORIGIN — origin for forwarding `POST /api/public-faucet` to the public Hub (default https://hub.fabric.pub).
  *      `./settings/local.cjs` — Family Tasks overrides merged after `@fabric/hub/settings/local.js`
  *      (`http.port`, `name`, …); env `PORT` / `FABRIC_HUB_PORT` still wins when set.
@@ -156,9 +157,14 @@ function configureFamilyTasksUi(hub) {
   const indexHtml = path.join(dist, "index.html");
   if (!fs.existsSync(indexHtml)) {
     if (process.env.NODE_ENV === "production") {
-      console.warn(
-        "[family-tasks] No dist/index.html — run `npm run build` first. `/` will use the stock Hub shell until then.",
-      );
+      const allowStockFallback =
+        process.env.FAMILY_TASKS_ALLOW_STOCK_UI_FALLBACK === "1" ||
+        process.env.FAMILY_TASKS_ALLOW_STOCK_UI_FALLBACK === "true";
+      const msg = "[family-tasks] No dist/index.html — run `npm run build` first.";
+      if (!allowStockFallback) {
+        throw new Error(`${msg} Refusing Hub UI fallback in production.`);
+      }
+      console.warn(`${msg} FAMILY_TASKS_ALLOW_STOCK_UI_FALLBACK=1 set, serving stock Hub UI.`);
     }
     return;
   }
