@@ -88,6 +88,15 @@ function buildHubSettings() {
   const mergedBase = merge({}, hubSettingsLocal, familySettingsLocal);
   const envHttpPort = process.env.FABRIC_HUB_PORT || process.env.PORT;
   const httpPort = coercePort(envHttpPort, coercePort(mergedBase.http?.port, 8080));
+  const fabricPort = coercePort(process.env.FABRIC_PORT, coercePort(mergedBase.port, 7777));
+  const bitcoinRpcPort = coercePort(
+    process.env.FABRIC_BITCOIN_RPC_PORT,
+    coercePort(mergedBase.bitcoin?.rpcport, 18443),
+  );
+  const lightningPort = coercePort(
+    process.env.FABRIC_LIGHTNING_PORT,
+    coercePort(mergedBase.lightning?.port, 19735),
+  );
 
   const baseFeds = Array.isArray(mergedBase.federations) ? mergedBase.federations : [];
   const federationList = [...baseFeds];
@@ -105,6 +114,15 @@ function buildHubSettings() {
       path: path.join(hubDataRoot, "fs"),
     },
     peersDb: path.join(hubDataRoot, "peers"),
+    port: fabricPort,
+    bitcoin: {
+      ...(mergedBase.bitcoin || {}),
+      rpcport: bitcoinRpcPort,
+    },
+    lightning: {
+      ...(mergedBase.lightning || {}),
+      port: lightningPort,
+    },
     http: {
       ...(mergedBase.http || {}),
       hostname:
