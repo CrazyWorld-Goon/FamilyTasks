@@ -6,6 +6,8 @@
  *
  * Env: PORT / FABRIC_HUB_PORT — HTTP listener (Hub `settings.http.port`).
  *      FABRIC_BITCOIN_ENABLE=false — skip Bitcoin (recommended for local dev).
+ *      FABRIC_BITCOIN_PORT — bitcoind P2P listen port (bind/listen collision guard).
+ *      FABRIC_BITCOIN_BIND — bitcoind bind address (default `127.0.0.1`).
  *      DATA_DIR — app JSON + Fabric hub stores under `${DATA_DIR}/fabric-hub/`.
  *      NODE_ENV=production — recommended for `npm start`; required for missing-dist warning.
  *      FABRIC_APP_BASE — Vite build base (default `/` in vite.config); must match how `dist/` was built.
@@ -93,6 +95,11 @@ function buildHubSettings() {
     process.env.FABRIC_BITCOIN_RPC_PORT,
     coercePort(mergedBase.bitcoin?.rpcport, 18443),
   );
+  const bitcoinPort = coercePort(
+    process.env.FABRIC_BITCOIN_PORT,
+    coercePort(mergedBase.bitcoin?.port, 18444),
+  );
+  const bitcoinBind = String(process.env.FABRIC_BITCOIN_BIND || mergedBase.bitcoin?.bind || "127.0.0.1");
   const lightningPort = coercePort(
     process.env.FABRIC_LIGHTNING_PORT,
     coercePort(mergedBase.lightning?.port, 19735),
@@ -117,6 +124,8 @@ function buildHubSettings() {
     port: fabricPort,
     bitcoin: {
       ...(mergedBase.bitcoin || {}),
+      bind: bitcoinBind,
+      port: bitcoinPort,
       rpcport: bitcoinRpcPort,
     },
     lightning: {

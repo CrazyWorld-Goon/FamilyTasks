@@ -23,6 +23,9 @@ module.exports = {
     port: 3900,
   },
   bitcoin: {
+    // bitcoind regtest P2P listen (default Hub stacks often use 18444/18445).
+    port: 39444,
+    bind: "127.0.0.1",
     rpcport: 39443,
   },
   lightning: {
